@@ -91,7 +91,8 @@ class ELCellStack:
 
         k2 = 2*self.R * Tk / (self.Alpha_an * self.F)
         # k3 = 1 / ((0.005139 * self.lambdam - 0.00326) * np.exp(1267 * (1 / 303 - 1 / Tk)))
-        k3 = (self.lm**2) * 1 / ((0.005139 * self.lambdam - 0.00326) * np.exp(1267 * (1 / 303 - 1 / Tk)))
+        sigma = ((0.005139 * self.lambdam - 0.00326) * np.exp(1267 * (1 / 303 - 1 / Tk)))
+        k3 = (self.initial_thickness**2) / sigma
         if i_cell > 0:
             V_cell = k1 + k2 * np.log(i_cell) + k3 * (1/lm)  * i_cell
         else:
@@ -219,11 +220,7 @@ class ELCellStack:
         # self.lm = self.initial_thickness - TR * t
         if self.lm < 0:
             self.lm = 0  # Ensure membrane thickness doesn't go negative
-        return FRR, self.lm
-
-        
-    
-    
+        return FRR, self.lm    
 
     def Vact_deg(self, Tk, i_cell, pres, lm, exact):
         EW = 1.100  # Nafion equivalent weight [kg/mol]
@@ -260,8 +257,15 @@ class ELCellStack:
         # Area Specific ohmic Resistance
         ## TODO: Check why in the original equations from the thesis this equation changes
         # r = lm * 1 / ((0.005139 * self.lambdam + 0.00326) * np.exp(1268 * (1 / 303 - 1 / Tk)))  # [Ohm*cm^2]
-        r = lm * 1 / ((0.005139 * self.lambdam - 0.00326) * np.exp(1267 * (1 / 303 - 1 / Tk)))  # [Ohm*cm^2]
+        sigma = ((0.005139 * self.lambdam - 0.00326) * np.exp(1267 * (1 / 303 - 1 / Tk)))
+        # r = lm * 1 / ((0.005139 * self.lambdam - 0.00326) * np.exp(1267 * (1 / 303 - 1 / Tk)))  # [Ohm*cm^2]
+        # Without degradation
+        # r = lm/sigma
+
         # Include degradation in the Ohm voltage
-        r = r *((self.lm/lm)**2)  
+        sigma = ((0.005139 * self.lambdam - 0.00326) * np.exp(1267 * (1 / 303 - 1 / Tk)))
+        sigma_deg = ((self.lm/self.initial_thickness)**2) * sigma
+        r = self.lm/sigma_deg
+        # r = r *((self.lm/lm)**2)  
         VOhm_deg = (i_cell * r)  # [V]
         return VOhm_deg
