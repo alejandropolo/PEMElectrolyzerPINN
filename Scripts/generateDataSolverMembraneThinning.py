@@ -123,13 +123,11 @@ def generateData(decreaseType='linear'):
 
         # Calculate voltage components
         ENernst_potential = cell_stack.ENernst(Tk, pres)
-        VAct_potential = cell_stack.Vact_deg(Tk, i_cell_solution, pres, lm,exact=False)
-        VOhm_potential = cell_stack.VOhm_deg(Tk, i_cell_solution, lm)
-        ## TODO: Modify the VCell_deg function to include the concentration overpotential
-        # VConc_potential = cell_stack.VConc(Tk, i_cell_solution)
-        total_voltage = ENernst_potential + VAct_potential + VOhm_potential #+ VConc_potential
-        total_voltage_check, k1_val, k2_val, k3_val = cell_stack.VCell_deg(Tk, i_cell_solution, pres,lm)
-         
+        VAct_potential = cell_stack.Vact_deg(Tk, i_cell_solution, pres, current_lm, exact=False)
+        VOhm_potential = cell_stack.VOhm_deg(Tk, i_cell_solution, current_lm)
+        total_voltage = ENernst_potential + VAct_potential + VOhm_potential
+        total_voltage_check, k1_val, k2_val, k3_val = cell_stack.VCell_deg(Tk, i_cell_solution, pres,current_lm)
+        
 
         # Store results
         ohmic_data[i] = VOhm_potential
