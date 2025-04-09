@@ -158,3 +158,6 @@ pdm.lock
 
 # VS Code
 .vscode/
+
+# Ignore .pkl files
+*.pkl
