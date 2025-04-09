@@ -4,12 +4,12 @@ from PEMModel import ELCellStack
 
 # Define constants and the cell stack object
 Tk = 353  # Temperature in Kelvin (standard room temperature)
-pres = 1  # Assume pressure in bars (standard pressure)
+pres = 10  # Assume pressure in bars (standard pressure)
 
 # Create an instance of the ELCellStack class
 cell_stack = ELCellStack()
 
-lm = 1.78e-2  # Membrane thickness [cm]
+lm = 1.35e-2  # Membrane thickness [cm]
 cell_stack.lm = lm
 
 # Define the current range from 0 to 6 (units of A/cm^2)
