@@ -46,17 +46,16 @@ def generateData(decreaseType = 'linear'):
     # Function to solve for intensity
     def intensity_solver(i_cell, Tk, pres, lm, power):
         ENernst_potential = cell_stack.ENernst(Tk, pres)
-        VAct_potential = cell_stack.Vact_deg(Tk, i_cell, pres, lm,exact=False)
+        VAct_potential = cell_stack.Vact_deg(Tk, i_cell, pres, lm, exact=False)
         VOhm_potential = cell_stack.VOhm_deg(Tk, i_cell, lm)
-        # VConc_potential = cell_stack.VConc(Tk, i_cell)
-        total_voltage = ENernst_potential + VAct_potential + VOhm_potential #+ VConc_potential
+        total_voltage = ENernst_potential + VAct_potential + VOhm_potential
         I = i_cell * cell_stack.A
-        return power - (I * total_voltage)  # Solve for I where Power = I * Voltage
-    
+        return power - (I * total_voltage)
+
     def intensity_solver_check(i_cell, Tk, pres, lm, power):
-        total_voltage = cell_stack.VCell_deg(Tk, i_cell, pres,lm)[0]
+        total_voltage = cell_stack.VCell_deg(Tk, i_cell, pres, lm)[0]
         I = i_cell * cell_stack.A
-        return power - (I * total_voltage)  # Solve for I where Power = I * Voltage
+        return power - (I * total_voltage)
 
     # Loop over the time range
     for i, t in enumerate(t_range):
