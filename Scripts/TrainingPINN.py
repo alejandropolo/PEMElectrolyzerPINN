@@ -112,7 +112,7 @@ def plot_results(model, t_test, t_train_mse, f_train, g_train, f_test, g_test,
     y1_pred_np = y1_pred.detach().cpu().numpy()
     y2_pred_np = y2_pred.detach().cpu().numpy()
     
-    if plot:
+    if plot or filepath:
         plt.figure(figsize=figsize)
 
         # Subplot for f(x)
@@ -151,4 +151,7 @@ def plot_results(model, t_test, t_train_mse, f_train, g_train, f_test, g_test,
             plt.savefig(filepath)
             print(f"Plot saved to {filepath}")
         
-        plt.show()
+        if plot:
+            plt.show()
+        else:
+            plt.close()
