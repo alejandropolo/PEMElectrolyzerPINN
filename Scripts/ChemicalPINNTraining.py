@@ -4,15 +4,17 @@ Dual-Output PINN Model for Chemical Decrease Simulation
 =========================================================
 This script implements a dual-output Physics-Informed Neural Network (PINN)
 to simulate the chemical degradation of a membrane based on experimental data.
-It first generates the required CSV file with synthetic data using the 
-generateData function, then loads, preprocesses the data, defines the
-ODE residuals, builds and trains the PINN model, and finally plots the results.
+For each combination of temperature and pressure, synthetic data is generated,
+the PINN is trained, the MSE losses are computed on both training and test data,
+and the results are plotted and logged in a CSV file.
 """
 
 ### IMPORTS
 import sys
+import os
 import warnings
 import logging
+import itertools
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -30,7 +32,6 @@ from DualOutputPINN import DualOutputPINN
 from TrainingPINN import train, plot_results
 from generateDataSolverMembraneThinning import generateData
 
-
 ### GLOBAL CONSTANTS & CONFIGURATION
 # Physical constants and parameters
 MM_H2O = torch.tensor(18.0, dtype=torch.float64)   # Water molar mass [g/mol]
@@ -46,10 +47,10 @@ T_REF = torch.tensor(298.0, dtype=torch.float64)        # Reference temperature 
 def PsatH2O(Tk: torch.Tensor) -> torch.Tensor:
     """
     Compute the saturated water vapor pressure (in bar).
-    
+
     Parameters:
         Tk (torch.Tensor): Temperature in Kelvin.
-        
+
     Returns:
         torch.Tensor: Saturated water vapor pressure in bar.
     """
@@ -60,12 +61,12 @@ def PsatH2O(Tk: torch.Tensor) -> torch.Tensor:
 def compute_CH2O2_CHO(Tk: torch.Tensor, i_cell: torch.Tensor, pres: float) -> torch.Tensor:
     """
     Compute the hydroxyl concentration (CHO) from the current density.
-    
+
     Parameters:
         Tk (torch.Tensor): Temperature in Kelvin (dtype=torch.float64).
         i_cell (torch.Tensor): Current density (dtype=torch.float64).
         pres (float): Pressure (bar).
-        
+
     Returns:
         torch.Tensor: Hydroxyl concentration [mol/m^3].
     """
@@ -93,21 +94,21 @@ def compute_CH2O2_CHO(Tk: torch.Tensor, i_cell: torch.Tensor, pres: float) -> to
     k1o = 7.068e2  # Kinetic constant [m^7/mol^2/s]
     AH2O2 = 42450  # Activation energy [J/mol]
     alfa = 0.5   # Transfer coefficient of the reaction [-]
-    
+
     # Concentration of H+
     cH = (1980 + 32.4 * LAMBDA_M) / ((1 + 0.0648 * LAMBDA_M) * EW)
-    
+
     # Kinetic constant k1
     k1 = k1o * torch.exp(-AH2O2 / (R_CONSTANT * Tk)) * torch.exp(-alfa * FARADAY * eta / (R_CONSTANT * T_REF))
     R1 = k1 * cO2 * cH ** 2  # Reaction rate [mol/m^2/s]
     v1 = gammac * R1 / eclc  # Formation rate [mol/m^3/s]
-    
+
     # Additional kinetic parameters
     k2 = 1.2e-7      # [s^(-1)]
     k6 = 2.7e4       # [m^3/mol/s]
     k7 = 1.2e7       # [m^3/mol/s]
     k10 = 1e3        # [m^3/mol/s]
-    
+
     e = k7 * cO2 + k10 * Cmemb - vH2O / eclc
     A2 = -3 * k2 + vH2O / eclc
     B  = e * vH2O / (eclc * k6) - v1 - e * k2 / k6
@@ -120,10 +121,10 @@ def compute_CH2O2_CHO(Tk: torch.Tensor, i_cell: torch.Tensor, pres: float) -> to
 def load_data(file_path: str) -> pd.DataFrame:
     """
     Load experimental data from a given file path.
-    
+
     Parameters:
         file_path (str): Path to the CSV file containing the data.
-                             
+
     Returns:
         pd.DataFrame: DataFrame containing the loaded data.
     """
@@ -142,7 +143,7 @@ def load_data(file_path: str) -> pd.DataFrame:
     except Exception as e:
         logging.error(f"Error loading data: {e}")
         raise ValueError("Failed to load data. Check the file path and format.")
-        
+
     logging.info("Data loaded successfully.")
     return df
 
@@ -150,11 +151,11 @@ def load_data(file_path: str) -> pd.DataFrame:
 def data_preprocessing(df: pd.DataFrame, plot: bool = False):
     """
     Preprocess the data including converting columns to torch tensors and reading constants.
-    
+
     Parameters:
         df (pd.DataFrame): DataFrame containing the experimental data.
         plot (bool): Flag to plot membrane thickness data.
-        
+
     Returns:
         tuple: Preprocessed tensors and constants needed for training.
     """
@@ -195,63 +196,127 @@ def data_preprocessing(df: pd.DataFrame, plot: bool = False):
             k3_mean, P_mean, final_time, g_values, P)
 
 
-### MAIN EXECUTION FLOW
+def compute_mse_loss(model: nn.Module, t_data: torch.Tensor,
+                     y1_true: torch.Tensor, y2_true: torch.Tensor) -> float:
+    """
+    Compute the MSE loss for the PINN model predictions versus the true values.
+    Combines the MSE for both outputs by taking their average.
 
-def main():
+    Parameters:
+        model (nn.Module): The trained PINN model.
+        t_data (torch.Tensor): The input time data.
+        y1_true (torch.Tensor): True values for the first output.
+        y2_true (torch.Tensor): True values for the second output.
+
+    Returns:
+        float: The computed MSE loss.
     """
-    Main function to run the data generation, training, and evaluation of the PINN model.
+    model.eval()
+    with torch.no_grad():
+        y1_pred, y2_pred = model(t_data)
+    loss_fn = nn.MSELoss()
+    loss1 = loss_fn(y1_pred, y1_true)
+    loss2 = loss_fn(y2_pred, y2_true)
+    total_loss = (loss1 + loss2) / 2
+    return total_loss.item()
+
+
+def simulate_and_evaluate(temp_c: float, press: float):
     """
+    For a given temperature (in Celsius) and pressure (in bar), generate synthetic data,
+    train the PINN, compute the MSE loss on both the training subset and the full test set,
+    plot the results, and return the computed losses.
+
+    Parameters:
+        temp_c (float): Temperature in Celsius.
+        press (float): Pressure in bar.
+
+    Returns:
+        dict: A dictionary with training and test MSE losses.
+    """
+    logging.info(f"Simulation start: Temperature = {temp_c}°C, Pressure = {press} bar")
     # ------------------------- Define Simulation Parameters -------------------------
-    logging.info("Starting simulation setup...")
     decrease_type = 'chemical'
-    # Define simulation parameters
     k = 1.0                           # Example constant parameter for data generation
-    Tk = torch.tensor(353.0, dtype=torch.float64)  # Temperature [K]
-    pres = 30                         # Pressure [bars]
+    # Convert temperature from Celsius to Kelvin
+    Tk = torch.tensor(temp_c + 273, dtype=torch.float64)
     power = 1000                      # Power [W]
-    initial_thickness = 1.78e-2       # Initial membrane thickness [cm]
-    
+    initial_thickness = 1.78e-2        # Initial membrane thickness [cm]
+
     # Read final_time from the constants file
     constants_df = pd.read_csv('../Data/constants.csv')
     final_time = torch.tensor(constants_df['final_time'], dtype=torch.float64)[0]
-    
     n_steps = 1000                   # Number of simulation steps for data generation
 
     # ------------------------- Generate Data -------------------------
-    logging.info("Generating data file using generateDataS...")
+    # Call the generateData function.
+    # It is assumed that generateData creates a CSV file named "membrane_thinning_voltage_data.csv"
+    # in the ../Data directory. To avoid overwriting data between runs, we rename the file.
+
+    # Check if the file already exists and delete it if necessary
+    orig_file = os.path.join('..', 'Data', 'membrane_thinning_voltage_data.csv')
+    if os.path.exists(orig_file):
+        os.remove(orig_file)
+        logging.info(f"Existing file {orig_file} deleted.")
+
     generateData(decreaseType=decrease_type,
                  k=k,
                  Tk=Tk.item(),
-                 pres=pres,
+                 pres=press,
                  power=power,
                  initial_thickness=initial_thickness,
                  final_time=final_time.item(),
-                 n_steps=n_steps, save_path='../Data')
-    logging.info("Data generation complete.")
+                 n_steps=n_steps,
+                 save_path='../Data')
+    # Rename the generated file to include the combination parameters.
+    orig_file = os.path.join('..', 'Data', 'membrane_thinning_voltage_data.csv')
+    new_filename = f"membrane_thinning_voltage_data_{int(temp_c)}_{int(press)}.csv"
+    new_file = os.path.join('..', 'Data', new_filename)
+    if os.path.exists(new_file):
+        os.remove(new_file)
+        logging.info(f"Existing file {new_file} deleted.")
+    os.rename(orig_file, new_file)
+    logging.info(f"Data file renamed to {new_file}")
 
     # ------------------------- Data Loading -------------------------
-    file_path = f'../Data/membrane_thinning_voltage_data.csv'
-    df = load_data(file_path)
+    df = load_data(new_file)
     Area_cell = 680  # [cm^2] Cell area
 
-    # ------------------------- Set Up Data for Training -------------------------
+    # ------------------------- Set Up Data for Training & Testing -------------------------
     torch.manual_seed(0)
     logging.info("Preparing training data for the PINN model...")
-    
-    # Scale factor for thickness training data
-    factor = 1e2
 
+    factor = 1e2  # Scale factor for thickness training data
+
+    # Define t_phys as full data (for test evaluation and plotting)
     t_phys = torch.tensor(df['Time'].values, dtype=torch.float64).reshape(-1, 1)
-    f_values = torch.tensor(df['V'].values, dtype=torch.float64).reshape(-1, 1)
-    x_phys = f_values.clone()
+    f_values_full = torch.tensor(df['V'].values, dtype=torch.float64).reshape(-1, 1)
+    g_values_full = factor * torch.tensor(df['memThickness'].values, dtype=torch.float64).reshape(-1, 1)
     P_area = torch.tensor((df['P'].values / Area_cell), dtype=torch.float64).reshape(-1, 1)
-    initial_thickness_csv = torch.tensor(df['memThickness'].values[0], dtype=torch.float64)
 
-    # ------------------------- Define ODE Residuals for PINN -------------------------
+    # # Use a small subset for training (e.g. first 1/8th of the points)
+    # t_train = t_phys[:max(1, len(t_phys)//8)]
+    # y1_train = f_values_full[:max(1, len(t_phys)//8)]
+    # y2_train = g_values_full[:max(1, len(t_phys)//8)]
+    # ------------------------- Prepare Training Data -------------------------
+    t_train = torch.tensor(df['Time'].values, dtype=torch.float64).reshape(-1, 1)
+    x_train = f_values_full.clone()
+    y1_train = torch.tensor(df['V'].values, dtype=torch.float64).reshape(-1, 1)
+    y2_train = factor * torch.tensor(df['memThickness'].values, dtype=torch.float64).reshape(-1, 1)
+
+    n = 1
+    half_index = len(t_train) // 8
+    indices = torch.linspace(0, half_index - 1, n).long()
+    t_train, x_train = t_train[indices], x_train[indices]
+    y1_train, y2_train = y1_train[indices], y2_train[indices]
+    logging.info("Training data prepared.")
+
+    # ------------------------- Define ODE Residuals -------------------------
+    constants_df = pd.read_csv('../Data/constants.csv')
     k1_mean = torch.tensor(constants_df['k1'].mean(), dtype=torch.float32)
     k2_mean = torch.tensor(constants_df['k2'].mean(), dtype=torch.float32)
     k3_mean = torch.tensor(constants_df['k3'].mean(), dtype=torch.float32)
-    
+
     f_func = lambda x, y: k1_mean * torch.ones_like(x) + \
                             k2_mean * torch.log(P_area / x) + \
                             k3_mean * (factor / y) * P_area / x
@@ -260,44 +325,34 @@ def main():
         df_dx - (-k2_mean * df_dx / f_pred + k3_mean * factor * P_area *
                  (-(dg_dx / (f_pred * g_pred**2)) - (df_dx / (g_pred * f_pred**2))))
 
-    # Chemical model parameters for the membrane thickness ODE residual
     k10 = 1e3
     EW = 1.1
     rhonaf = 1980
     Cmemb = rhonaf / EW
     MMF = 18.998403
-    A_const = 3.6 * k10 * Cmemb * MMF * 3600 / 1e4  # Derived constant from kinetics
-    lam = A_const / 164  # Effective rate constant
+    A_const = 3.6 * k10 * Cmemb * MMF * 3600 / 1e4
+    lam = A_const / 164
 
     ode_residual_g_func = lambda f_pred, g_pred, dg_dx, t: \
-        dg_dx + lam * compute_CH2O2_CHO(Tk, P_area / f_pred, pres) * g_pred * final_time
-
-    # ------------------------- Prepare Training Data -------------------------
-    t_train_mse = torch.tensor(df['Time'].values, dtype=torch.float64).reshape(-1, 1)
-    x_train_mse = f_values.clone()
-    y1_train = torch.tensor(df['V'].values, dtype=torch.float64).reshape(-1, 1)
-    y2_train = factor * torch.tensor(df['memThickness'].values, dtype=torch.float64).reshape(-1, 1)
-
-    n = 1
-    half_index = len(t_train_mse) // 8
-    indices = torch.linspace(0, half_index - 1, n).long()
-    t_train_mse, x_train_mse = t_train_mse[indices], x_train_mse[indices]
-    y1_train, y2_train = y1_train[indices], y2_train[indices]
-    logging.info("Training data prepared.")
+        dg_dx + lam * compute_CH2O2_CHO(Tk, P_area / f_pred, press) * g_pred * final_time
 
     # ------------------------- Build and Train the Model -------------------------
     logging.info("Initializing and training the PINN model...")
-    model = DualOutputPINN(t0=t_train_mse[0], y01=y1_train[0], y02=y2_train[0])
+    model = DualOutputPINN(t0=t_train[0], y01=y1_train[0], y02=y2_train[0])
     train(model=model,
-          t_mse=t_train_mse,
+          t_mse=t_train,
           t_phys=t_phys,
-          x_phys=x_phys,
+          x_phys=f_values_full,
           y1_train=y1_train,
           y2_train=y2_train,
+          t_val = t_phys,
+          y1_val = f_values_full,
+          y2_val = g_values_full,
           lambda_phys=1.0,
           lambda_mse=1.0,
-          epochs=5000,
+          epochs=100,
           lr=0.1,
+          patience=1000,
           lambda_phys_f=1.0,
           lambda_phys_g=1.0,
           lambda_mse_f=1.0,
@@ -306,14 +361,63 @@ def main():
           ode_residual_g_func=ode_residual_g_func)
     logging.info("Model training complete.")
 
-    # ------------------------- Model Evaluation & Plotting -------------------------
-    logging.info("Evaluating the model and plotting results...")
-    g_test = factor * torch.tensor(df['memThickness'].values, dtype=torch.float64).reshape(-1, 1).detach().numpy()
-    f_test = torch.tensor(df['V'].values, dtype=torch.float64).reshape(-1, 1).detach().numpy()
-    plot_results(model, t_phys, t_train_mse, y1_train, y2_train,
-                 f_test=f_test, g_test=g_test,
-                 f_func=None, g_func=None, figsize=(18, 6))
-    logging.info("Evaluation and plotting complete.")
+    # ------------------------- Compute MSE Loss on Training and Test Data -------------------------
+    # Loss on training subset
+    # train_mse = compute_mse_loss(model, t_train, y1_train, y2_train)
+    train_mse = model.mse_loss(t_train, y1_train, y2_train, 
+                                          lambda_mse_f=1.0, 
+                                          lambda_mse_g=1.0).item()
+    # Loss on the full test set (all data points)
+    # test_mse = compute_mse_loss(model, t_phys, f_values_full, g_values_full)
+    test_mse = model.mse_loss(t_phys, f_values_full, g_values_full,
+                                          lambda_mse_f=1.0, 
+                                          lambda_mse_g=1.0).item()
+    logging.info(f"Train MSE Loss: {train_mse:.8f}")
+    logging.info(f"Test MSE Loss: {test_mse:.8f}")
+
+    # ------------------------- Plot the Results -------------------------
+    # The plot_results function should handle plotting the predictions vs. the full dataset.
+    g_test = g_values_full.detach().numpy()
+    f_test = f_values_full.detach().numpy()
+    # Generate a filepath with the specific temperature and pressure
+    filepath = f"../Results/Results_{int(temp_c)}_{int(press)}.png"
+    plot_results(model, t_phys, t_train, y1_train, y2_train,
+                 f_test=f_test, g_test=g_test, figsize=(18, 6), 
+                 plot=True, filepath=filepath)
+
+    # Return both training and test losses
+    return {"Temperature_C": temp_c, "Pressure_bar": press, "Train_MSE": train_mse, "Test_MSE": test_mse}
+
+
+def main():
+    """
+    Main function that runs simulations for all temperature and pressure combinations,
+    computes both training and test MSE losses for each, plots the results, and appends
+    the data to a CSV file.
+    """
+    # Define the temperatures (in Celsius) and pressures (in bar)
+    temperatures = [40,60,80]
+    pressures = [1,30]
+
+    # Results file name
+    results_csv = "results.csv"
+    all_results = []
+
+    for temp, press in itertools.product(temperatures, pressures):
+        losses = simulate_and_evaluate(temp, press)
+        all_results.append(losses)
+        # Append the row to the CSV file
+        df_temp = pd.DataFrame([losses])
+        # If file exists, append without header; otherwise, write with header.
+        if os.path.exists(results_csv):
+            df_temp.to_csv(results_csv, mode='a', index=False, header=False)
+        else:
+            df_temp.to_csv(results_csv, mode='w', index=False)
+        logging.info(f"Results appended for Temp: {temp}°C, Pressure: {press} bar")
+
+    logging.info("All simulations complete. Final results:")
+    logging.info(pd.DataFrame(all_results))
+
 
 if __name__ == '__main__':
     main()
