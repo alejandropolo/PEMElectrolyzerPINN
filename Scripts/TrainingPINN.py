@@ -98,9 +98,9 @@ import os
 import torch
 import matplotlib.pyplot as plt
 
-# Function to plot results
+# Function to plot results and save the figure using a provided file path.
 def plot_results(model, t_test, t_train_mse, f_train, g_train, f_test, g_test, 
-                 f_func=None, g_func=None, figsize=(12,6)):
+                 f_func=None, g_func=None, figsize=(12,6),plot=False, filepath=None):
     model.eval()
     with torch.no_grad():
         # Ensure test data is float64
@@ -112,34 +112,43 @@ def plot_results(model, t_test, t_train_mse, f_train, g_train, f_test, g_test,
     y1_pred_np = y1_pred.detach().cpu().numpy()
     y2_pred_np = y2_pred.detach().cpu().numpy()
     
-    plt.figure(figsize=figsize)
+    if plot:
+        plt.figure(figsize=figsize)
 
-    # Subplot for f(x)
-    plt.subplot(1, 2, 1)
-    if f_func:
-        plt.scatter(t_test_np, f_func(t_test_np), label="True f(x)", alpha=0.5)
-        plt.scatter(t_test_np, y1_pred_np, label="Predicted f(x)", marker='x', s=10)
-        plt.scatter(t_train_mse_np, f_func(t_train_mse_np), label="Training f(x)", marker='o', s=30, edgecolor='k')
-    else:
-        plt.scatter(t_test_np, f_test, label="True f(x)", alpha=0.5)
-        plt.scatter(t_test_np, y1_pred_np, label="Predicted f(x)", marker='x', s=10)
-        plt.scatter(t_train_mse_np, f_train, label="Training f(x)", marker='o', s=30, edgecolor='k')
-    plt.legend()
-    plt.title("True vs Predicted f(x)")
+        # Subplot for f(x)
+        plt.subplot(1, 2, 1)
+        if f_func:
+            plt.scatter(t_test_np, f_func(t_test_np), label="True f(x)", alpha=0.5)
+            plt.scatter(t_test_np, y1_pred_np, label="Predicted f(x)", marker='x', s=10)
+            plt.scatter(t_train_mse_np, f_func(t_train_mse_np), label="Training f(x)", marker='o', s=30, edgecolor='k')
+        else:
+            plt.scatter(t_test_np, f_test, label="True f(x)", alpha=0.5)
+            plt.scatter(t_test_np, y1_pred_np, label="Predicted f(x)", marker='x', s=10)
+            plt.scatter(t_train_mse_np, f_train, label="Training f(x)", marker='o', s=30, edgecolor='k')
+        plt.legend()
+        plt.title("True vs Predicted f(x)")
 
-    # Subplot for g(x)
-    plt.subplot(1, 2, 2)
-    if g_func:
-        plt.scatter(t_test_np, g_func(t_test_np), label="True g(x)", alpha=0.5)
-        plt.scatter(t_test_np, y2_pred_np, label="Predicted g(x)", marker='x', s=10)
-        plt.scatter(t_train_mse_np, g_func(t_train_mse_np), label="Training g(x)", marker='o', s=30, edgecolor='k')
-    else:
-        plt.scatter(t_test_np, g_test, label="True g(x)", alpha=0.5)
-        plt.scatter(t_test_np, y2_pred_np, label="Predicted g(x)", marker='x', s=10)
-        plt.scatter(t_train_mse_np, g_train, label="Training g(x)", marker='o', s=30, edgecolor='k')
-    
-    plt.legend()
-    plt.title("True vs Predicted g(x)")
+        # Subplot for g(x)
+        plt.subplot(1, 2, 2)
+        if g_func:
+            plt.scatter(t_test_np, g_func(t_test_np), label="True g(x)", alpha=0.5)
+            plt.scatter(t_test_np, y2_pred_np, label="Predicted g(x)", marker='x', s=10)
+            plt.scatter(t_train_mse_np, g_func(t_train_mse_np), label="Training g(x)", marker='o', s=30, edgecolor='k')
+        else:
+            plt.scatter(t_test_np, g_test, label="True g(x)", alpha=0.5)
+            plt.scatter(t_test_np, y2_pred_np, label="Predicted g(x)", marker='x', s=10)
+            plt.scatter(t_train_mse_np, g_train, label="Training g(x)", marker='o', s=30, edgecolor='k')
+        
+        plt.legend()
+        plt.title("True vs Predicted g(x)")
+        plt.tight_layout()
 
-    plt.tight_layout()
-    plt.show()
+        # If a filepath is provided, ensure the directory exists and save the figure.
+        if filepath:
+            directory = os.path.dirname(filepath)
+            if directory and not os.path.exists(directory):
+                os.makedirs(directory)
+            plt.savefig(filepath)
+            print(f"Plot saved to {filepath}")
+        
+        plt.show()
