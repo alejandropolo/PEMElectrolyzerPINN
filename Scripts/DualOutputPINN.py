@@ -73,3 +73,4 @@ class DualOutputPINN(nn.Module):
         loss_f = nn.MSELoss()(f_pred, f_data)
         loss_g = nn.MSELoss()(g_pred, g_data)
         return lambda_mse_f*loss_f + lambda_mse_g*loss_g
+    

@@ -221,7 +221,9 @@ def compute_mse_loss(model: nn.Module, t_data: torch.Tensor,
     return total_loss.item()
 
 
-def simulate_and_evaluate(temp_c: float, press: float):
+def simulate_and_evaluate(temp_c, press, 
+                          initial_thickness, power, k,
+                          n=10, data_percentage=3,noise=0.0):
     """
     For a given temperature (in Celsius) and pressure (in bar), generate synthetic data,
     train the PINN, compute the MSE loss on both the training subset and the full test set,
@@ -237,11 +239,11 @@ def simulate_and_evaluate(temp_c: float, press: float):
     logging.info(f"Simulation start: Temperature = {temp_c}°C, Pressure = {press} bar")
     # ------------------------- Define Simulation Parameters -------------------------
     decrease_type = 'chemical'
-    k = 1.0                           # Example constant parameter for data generation
+    # k = 1.0                           # Example constant parameter for data generation
     # Convert temperature from Celsius to Kelvin
     Tk = torch.tensor(temp_c + 273, dtype=torch.float64)
-    power = 1000                      # Power [W]
-    initial_thickness = 1.78e-2        # Initial membrane thickness [cm]
+    # power = 1000                      # Power [W]
+    # initial_thickness = 1.78e-2        # Initial membrane thickness [cm]
 
     # Read final_time from the constants file
     constants_df = pd.read_csv('../Data/constants.csv')
@@ -350,7 +352,7 @@ def simulate_and_evaluate(temp_c: float, press: float):
           y2_val = g_values_full,
           lambda_phys=1.0,
           lambda_mse=1.0,
-          epochs=100,
+          epochs=5000,
           lr=0.1,
           patience=1000,
           lambda_phys_f=1.0,
@@ -380,13 +382,22 @@ def simulate_and_evaluate(temp_c: float, press: float):
     g_test = g_values_full.detach().numpy()
     f_test = f_values_full.detach().numpy()
     # Generate a filepath with the specific temperature and pressure
-    filepath = f"../Results/Results_{int(temp_c)}_{int(press)}.png"
+    filepath = f"../Results/Results_{int(temp_c)}_{int(press)}_{int(power)}_{initial_thickness:.2e}_{noise:.2f}_{n}.png"
     plot_results(model, t_phys, t_train, y1_train, y2_train,
                  f_test=f_test, g_test=g_test, figsize=(18, 6), 
-                 plot=True, filepath=filepath)
+                 plot=False, filepath=filepath)
 
     # Return both training and test losses
-    return {"Temperature_C": temp_c, "Pressure_bar": press, "Train_MSE": train_mse, "Test_MSE": test_mse}
+    return {
+        "Temperature_C": temp_c,
+        "Pressure_bar": press,
+        "Power_W": power,
+        "Initial_Thickness_cm": initial_thickness,
+        "Noise": noise,
+        "N": n,
+        "Train_MSE": train_mse,
+        "Test_MSE": test_mse
+    }
 
 
 def main():
@@ -396,15 +407,26 @@ def main():
     the data to a CSV file.
     """
     # Define the temperatures (in Celsius) and pressures (in bar)
-    temperatures = [40,60,80]
-    pressures = [1,30]
+    temperatures = [80]
+    pressures = [1]
+    powers = [500] # Power [W]
+    # FIXME: Review why bigger initial_thickness implies lower voltage
+    initial_thicknesses = [1.0e-2]  # Initial membrane thickness [cm]
+    k = None # Example constant parameter for data generation
+    noise=0.0
+    n = 10
+    data_percentage = 3
 
     # Results file name
     results_csv = "results.csv"
     all_results = []
 
-    for temp, press in itertools.product(temperatures, pressures):
-        losses = simulate_and_evaluate(temp, press)
+    
+
+    for temp, press,power, initial_thickness in itertools.product(temperatures, pressures, powers, initial_thicknesses):
+        losses = simulate_and_evaluate(temp_c=temp, press=press, 
+                                       power=power,initial_thickness=initial_thickness, k=k,
+                                       noise=noise, data_percentage=data_percentage, n=n)
         all_results.append(losses)
         # Append the row to the CSV file
         df_temp = pd.DataFrame([losses])
