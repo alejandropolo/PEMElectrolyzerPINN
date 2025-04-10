@@ -161,3 +161,19 @@ pdm.lock
 
 # Ignore .pkl files
 *.pkl
+
+# ignore chemical-pin-project folder
+
+chemical-pinn-project/*
+src_Chemical_Deg/*
+
+
+# Ignore Results folder
+Results/*
+
+# Ignore Models folder
+Models/*
+
+# Ignore Data folder
+Data/*
+
