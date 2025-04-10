@@ -5,21 +5,23 @@ from PEMModel import ELCellStack
 import os
 import csv
 
-def generateData(decreaseType='linear'):
+def generateData(decreaseType='linear', k =1e-6, Tk=353, pres=30,
+                power=1000, initial_thickness=1.78e-2,
+                final_time=8e5, n_steps=1000, plot=False, save_path = './Data'):
     # Define an instance of the ELCellStack class
     cell_stack = ELCellStack()
 
-    # Constants
-    k = 1e-6  # Thinning rate constant [cm/hour]
-    Tk = 353  # Temperature [K]
-    pres = 30  # Pressure [bars]
-    power = 1000  # Power [W]
-    initial_thickness = 1.78e-2  # Initial membrane thickness [cm]
-    final_time = 8e5  # Total simulation time in hours
+    # # Constants
+    # k = 1e-6  # Thinning rate constant [cm/hour]
+    # Tk = 353  # Temperature [K]
+    # pres = 30  # Pressure [bars]
+    # power = 1000  # Power [W]
+    # initial_thickness = 1.78e-2  # Initial membrane thickness [cm]
+    # final_time = 8e5  # Total simulation time in hours
     
 
-    # Time range from 0 to 1 (normalized)
-    n_steps = 1000
+    # # Time range from 0 to 1 (normalized)
+    # n_steps = 1000
     t_range = np.linspace(0, 1, n_steps)
     final_time_np = np.ones(n_steps) * final_time
     dt = t_range[1] - t_range[0] if len(t_range) > 1 else 0
@@ -185,33 +187,36 @@ def generateData(decreaseType='linear'):
                   'Current Density (A/cm2),Current Density Check (A/cm2),'
                   'Power (W),Power Check (W)')
 
-    np.savetxt('./Data/membrane_thinning_voltage_data.csv', data, header=header, 
-               fmt='%.6g', delimiter=',')
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+    np.savetxt(os.path.join(save_path, 'membrane_thinning_voltage_data.csv'), data, 
+               header=header, fmt='%.6g', delimiter=',')
 
     # Save constants
     constants_data = np.column_stack((t_range * final_time, k1, k2, k3,final_time_np))
-    np.savetxt('./Data/constants.csv', constants_data, 
+    np.savetxt(os.path.join(save_path, 'constants.csv'), constants_data, 
                header='Time (hours),k1,k2,k3,final_time', fmt='%.6g', delimiter=',')
 
-    # Plotting
-    plt.figure()
-    plt.plot(t_range * final_time, membrane_thickness, linewidth=2)
-    plt.xlabel('Operating Time (hours)')
-    plt.ylabel('Membrane Thickness (cm)')
-    plt.title('Membrane Thinning Over Time')
-    plt.grid(True)
-    plt.show()
+    if plot :
+        # Plotting
+        plt.figure()
+        plt.plot(t_range * final_time, membrane_thickness, linewidth=2)
+        plt.xlabel('Operating Time (hours)')
+        plt.ylabel('Membrane Thickness (cm)')
+        plt.title('Membrane Thinning Over Time')
+        plt.grid(True)
+        plt.show()
 
-    plt.figure()
-    plt.plot(t_range * final_time, voltage_data, label='Voltage')
-    plt.plot(t_range * final_time, activation_data, '--', label='Activation')
-    plt.plot(t_range * final_time, ohmic_data, ':', label='Ohmic')
-    plt.xlabel('Operating Time (hours)')
-    plt.ylabel('Voltage (V)')
-    plt.title('Voltage Components Over Time')
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+        plt.figure()
+        plt.plot(t_range * final_time, voltage_data, label='Voltage')
+        plt.plot(t_range * final_time, activation_data, '--', label='Activation')
+        plt.plot(t_range * final_time, ohmic_data, ':', label='Ohmic')
+        plt.xlabel('Operating Time (hours)')
+        plt.ylabel('Voltage (V)')
+        plt.title('Voltage Components Over Time')
+        plt.legend()
+        plt.grid(True)
+        plt.show()
 
 if __name__ == "__main__":
     generateData(decreaseType='chemical')  # Change degradation type as needed
