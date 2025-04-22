@@ -170,6 +170,7 @@ src_Chemical_Deg/*
 
 # Ignore Results folder
 Results/*
+Results_copy/*
 
 # Ignore Models folder
 Models/*
