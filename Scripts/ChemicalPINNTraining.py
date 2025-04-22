@@ -306,11 +306,22 @@ def simulate_and_evaluate(temp_c, press,
     y1_train = torch.tensor(df['V'].values, dtype=torch.float64).reshape(-1, 1)
     y2_train = factor * torch.tensor(df['memThickness'].values, dtype=torch.float64).reshape(-1, 1)
 
-    n = 1
-    half_index = len(t_train) // 8
+    n = 10
+    half_index = len(t_train) // 3
     indices = torch.linspace(0, half_index - 1, n).long()
     t_train, x_train = t_train[indices], x_train[indices]
     y1_train, y2_train = y1_train[indices], y2_train[indices]
+    # n = 15
+    # half_index = len(t_train) // 3
+    # indices = torch.linspace(0, half_index - 1, n).long()
+    # t_train, x_train = t_train[indices], x_train[indices]
+    # y1_train, y2_train = y1_train[indices], y2_train[indices]
+
+    # # Add noise to the training data (excluding the first point)
+    # noise_factor_y1 = 0.1 * (y1_train.max() - y1_train.min())
+    # noise_factor_y2 = 0.1 * (y2_train.max() - y2_train.min())
+    # y1_train[1:] += noise_factor_y1 * torch.randn_like(y1_train[1:])
+    # y2_train[1:] += noise_factor_y2 * torch.randn_like(y2_train[1:])
     logging.info("Training data prepared.")
 
     # ------------------------- Define ODE Residuals -------------------------
@@ -407,11 +418,11 @@ def main():
     the data to a CSV file.
     """
     # Define the temperatures (in Celsius) and pressures (in bar)
-    temperatures = [80]
-    pressures = [1]
-    powers = [500] # Power [W]
+    temperatures = [40,80]
+    pressures = [1,30]
+    powers = [500,100] # Power [W]
     # FIXME: Review why bigger initial_thickness implies lower voltage
-    initial_thicknesses = [1.0e-2]  # Initial membrane thickness [cm]
+    initial_thicknesses = [1.0e-2,1.78e-2]  # Initial membrane thickness [cm]
     k = None # Example constant parameter for data generation
     noise=0.0
     n = 10
