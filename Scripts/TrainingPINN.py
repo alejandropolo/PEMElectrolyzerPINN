@@ -115,32 +115,34 @@ def plot_results(model, t_test, t_train_mse, f_train, g_train, f_test, g_test,
     if plot or filepath:
         plt.figure(figsize=figsize)
 
-        # Subplot for f(x)
+        # Subplot for Voltage
         plt.subplot(1, 2, 1)
         if f_func:
-            plt.scatter(t_test_np, f_func(t_test_np), label="True f(x)", alpha=0.5)
-            plt.scatter(t_test_np, y1_pred_np, label="Predicted f(x)", marker='x', s=10)
-            plt.scatter(t_train_mse_np, f_func(t_train_mse_np), label="Training f(x)", marker='o', s=30, edgecolor='k')
+            plt.scatter(t_test_np, f_func(t_test_np), label="True Voltage", alpha=0.5)
+            plt.scatter(t_test_np, y1_pred_np, label="Predicted Voltage", marker='x', s=10)
+            plt.scatter(t_train_mse_np, f_func(t_train_mse_np), label="Training Voltage", marker='o', s=30, edgecolor='k')
         else:
-            plt.scatter(t_test_np, f_test, label="True f(x)", alpha=0.5)
-            plt.scatter(t_test_np, y1_pred_np, label="Predicted f(x)", marker='x', s=10)
-            plt.scatter(t_train_mse_np, f_train, label="Training f(x)", marker='o', s=30, edgecolor='k')
+            plt.scatter(t_test_np, f_test, label="True Voltage", alpha=0.5)
+            plt.scatter(t_test_np, y1_pred_np, label="Predicted Voltage", marker='x', s=10)
+            plt.scatter(t_train_mse_np, f_train, label="Training Voltage", marker='o', s=30, edgecolor='k')
         plt.legend()
-        plt.title("True vs Predicted f(x)")
+        plt.title("True vs Predicted Voltage")
+        # plt.ylim(1.8, 2.5)  # Set y-axis limits between 1.5 and 3
 
-        # Subplot for g(x)
+        # Subplot for Membrane Thickness
         plt.subplot(1, 2, 2)
         if g_func:
-            plt.scatter(t_test_np, g_func(t_test_np), label="True g(x)", alpha=0.5)
-            plt.scatter(t_test_np, y2_pred_np, label="Predicted g(x)", marker='x', s=10)
-            plt.scatter(t_train_mse_np, g_func(t_train_mse_np), label="Training g(x)", marker='o', s=30, edgecolor='k')
+            plt.scatter(t_test_np, g_func(t_test_np), label="True Membrane Thickness", alpha=0.5)
+            plt.scatter(t_test_np, y2_pred_np, label="Predicted Membrane Thickness", marker='x', s=10)
+            plt.scatter(t_train_mse_np, g_func(t_train_mse_np), label="Training Membrane Thickness", marker='o', s=30, edgecolor='k')
         else:
-            plt.scatter(t_test_np, g_test, label="True g(x)", alpha=0.5)
-            plt.scatter(t_test_np, y2_pred_np, label="Predicted g(x)", marker='x', s=10)
-            plt.scatter(t_train_mse_np, g_train, label="Training g(x)", marker='o', s=30, edgecolor='k')
+            plt.scatter(t_test_np, g_test, label="True Membrane Thickness", alpha=0.5)
+            plt.scatter(t_test_np, y2_pred_np, label="Predicted Membrane Thickness", marker='x', s=10)
+            plt.scatter(t_train_mse_np, g_train, label="Training Membrane Thickness", marker='o', s=30, edgecolor='k')
         
         plt.legend()
-        plt.title("True vs Predicted g(x)")
+        plt.title("True vs Predicted Membrane Thickness")
+        plt.ylim(0, 2)  # Set y-axis limits between 1.5 and 3
         plt.tight_layout()
 
         # If a filepath is provided, ensure the directory exists and save the figure.
