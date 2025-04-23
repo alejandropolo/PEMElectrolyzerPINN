@@ -4,6 +4,22 @@ import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
 
+"""
+This Python file demonstrates an example of a neural network with dual outputs and dual ODE functions.
+The neural network is trained using a combination of data-driven loss (MSE) and physics-informed loss
+based on the residuals of the ODEs. The model predicts two functions, f(x) and g(x), and ensures that
+the predictions satisfy the given ODE constraints.
+
+The pipeline includes:
+1. Data generation for training and testing.
+2. Definition of the neural network architecture with dual outputs.
+3. Training the model using a combination of MSE and physics-based loss.
+4. Visualization of the true vs predicted functions.
+
+The example ODEs used in this script are:
+- df/dx = dg/dx + 2x
+- dg/dx = 3x^2
+"""
 # Function to generate training data
 def generate_data(n_samples=1000, f_func=None, g_func=None):
     x = torch.linspace(-0.5, 0.5, n_samples).reshape(-1, 1)
