@@ -1,6 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from PEMModel import ELCellStack
+import os
+import sys
+
+# Add the parent directory of 'Scripts' to the Python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from PEMWE.PEMModel import ELCellStack
 
 # Define constants and the cell stack object
 Tk = 353  # Temperature in Kelvin (standard room temperature)
@@ -31,7 +37,7 @@ for i, i_cell in enumerate(I_range):
     # Calculate individual potentials
     ENernst_potential = cell_stack.ENernst(Tk, pres)
     # VAct_potential = cell_stack.VAct(Tk, i_cell)
-    VAct_potential = cell_stack.Vact_deg(Tk, i_cell,pres,lm,exact=False)
+    VAct_potential = cell_stack.Vact_deg(Tk, i_cell,pres,lm,exact=False) # Activation overpotential (deg) using log approximation
     # VAct_potential_log = cell_stack.VAct_log(Tk, i_cell)
     # VOhm_potential = cell_stack.VOhm(Tk, i_cell)
     VOhm_potential = cell_stack.VOhm_deg(Tk, i_cell,lm)
@@ -41,7 +47,6 @@ for i, i_cell in enumerate(I_range):
     
     # Sum the potentials for the total voltage
     total_voltage = ENernst_potential + VAct_potential + VOhm_potential
-    # total_voltage = ENernst_potential + VAct_potential_log + VOhm_potential
     
     # Store the total voltage and individual components
     voltages[i] = total_voltage
