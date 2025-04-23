@@ -1,6 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from PEMModel import ELCellStack  # Assuming ELCellStack is implemented in a module
+import os
+import sys
+
+# Add the parent directory of 'Scripts' to the Python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from PEMWE.PEMModel import ELCellStack
 
 def plotTempCHO():
     # Create an instance of the ELCellStack class
