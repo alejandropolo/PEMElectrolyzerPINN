@@ -178,3 +178,6 @@ Models/*
 # Ignore Data folder
 Data/*
 
+# Ignore Notebooks/Notebooks_Trial folder
+Notebooks/Notebooks_Trial/*
+Scripts/scrTrial/*
