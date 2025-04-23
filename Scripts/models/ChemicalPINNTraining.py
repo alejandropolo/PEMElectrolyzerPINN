@@ -28,9 +28,9 @@ logging.basicConfig(level=logging.INFO,
 
 # Append custom scripts directory
 sys.path.append('../Scripts')
-from DualOutputPINN import DualOutputPINN
-from TrainingPINN import train, plot_results
-from generateDataSolverMembraneThinning import generateData
+from Scripts.models.DualOutputPINN import DualOutputPINN
+from Scripts.models.TrainingPINN import train, plot_results
+from Scripts.data.generateData import generateData
 
 ### GLOBAL CONSTANTS & CONFIGURATION
 # Physical constants and parameters
