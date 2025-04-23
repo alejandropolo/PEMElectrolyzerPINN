@@ -412,10 +412,21 @@ def simulate_and_evaluate(temp_c, press,
 
 
 def main():
-    """
-    Main function that runs simulations for all temperature and pressure combinations,
-    computes both training and test MSE losses for each, plots the results, and appends
-    the data to a CSV file.
+    """"
+    ChemicalPINNTraining.py
+    This script is designed to train and evaluate a Physics-Informed Neural Network (PINN) 
+    model for simulating chemical degradation processes in Proton Exchange Membrane Water 
+    Electrolysis (PEMWE) systems. The script performs simulations across various combinations 
+    of temperature, pressure, power, and initial membrane thickness, computes training and 
+    test Mean Squared Error (MSE) losses, and logs the results into a CSV file.
+    Functions:
+        main():
+            Executes the simulation for all combinations of input parameters, evaluates 
+            the model's performance, and saves the results.
+    Usage:
+        Run this script to generate and evaluate PINN models for chemical degradation 
+        under different operating conditions. The results are stored in a CSV file 
+        for further analysis.
     """
     # Define the temperatures (in Celsius) and pressures (in bar)
     temperatures = [40,80]
