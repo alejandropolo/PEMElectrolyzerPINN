@@ -1,5 +1,5 @@
 import numpy as np
-
+# TODO: Add a python library to work with units
 class ELCellStack:
     def __init__(self):
         # Input parameters

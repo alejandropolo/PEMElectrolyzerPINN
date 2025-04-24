@@ -81,6 +81,27 @@ def plot_results(model, x_test):
 
 # Run the pipeline
 def main():
+    """
+    DualOutputNN.py
+
+    This script defines and trains a dual-output neural network model as an example for the case of 
+    a dual-output neural network. It demonstrates how to handle multiple outputs in a single model 
+    and train it effectively.
+
+    Functions:
+    - main(): The entry point of the script. It generates training data, initializes the dual-output 
+        neural network model, trains it using the generated data, and visualizes the results.
+
+    Modules:
+    - generate_data: A function to generate input data (x_train) and two corresponding output datasets 
+        (y1_train, y2_train) for training the model.
+    - DualOutputNN: A class or function that defines the architecture of the dual-output neural network.
+    - train: A function to train the neural network model using the provided training data.
+    - plot_results: A function to visualize the model's performance on the training data.
+
+    Usage:
+    Run this script to train a dual-output neural network and visualize its performance.
+    """
     x_train, y1_train, y2_train = generate_data()
     model = DualOutputNN()
     train(model, x_train, y1_train, y2_train)
