@@ -222,7 +222,9 @@ def compute_mse_loss(model: nn.Module, t_data: torch.Tensor,
 
 
 def simulate_and_evaluate(temp_c, press, 
-                          initial_thickness, power, k,
+                          initial_thickness, power, k, 
+                          Area_cell = 680,
+                          decrease_type = 'chemical',final_time = 8e5,
                           n=10, data_percentage=3,noise=0.0):
     """
     For a given temperature (in Celsius) and pressure (in bar), generate synthetic data,
@@ -238,16 +240,9 @@ def simulate_and_evaluate(temp_c, press,
     """
     logging.info(f"Simulation start: Temperature = {temp_c}°C, Pressure = {press} bar")
     # ------------------------- Define Simulation Parameters -------------------------
-    decrease_type = 'chemical'
-    # k = 1.0                           # Example constant parameter for data generation
+
     # Convert temperature from Celsius to Kelvin
     Tk = torch.tensor(temp_c + 273, dtype=torch.float64)
-    # power = 1000                      # Power [W]
-    # initial_thickness = 1.78e-2        # Initial membrane thickness [cm]
-
-    # Read final_time from the constants file
-    constants_df = pd.read_csv('../Data/constants.csv')
-    final_time = torch.tensor(constants_df['final_time'], dtype=torch.float64)[0]
     n_steps = 1000                   # Number of simulation steps for data generation
 
     # Check if the file already exists and delete it if necessary
@@ -270,9 +265,18 @@ def simulate_and_evaluate(temp_c, press,
                  pres=press,
                  power=power,
                  initial_thickness=initial_thickness,
-                 final_time=final_time.item(),
+                 final_time=final_time,
                  n_steps=n_steps,
                  save_path='../../Data')
+
+    # Read final_time from the constants file
+    constants_df = pd.read_csv(os.path.join(os.path.dirname(__file__), '..', '..', 'Data', 'constants.csv'))
+    # Assert final_time is equal to predefined final_time
+    assert np.isclose(constants_df['final_time'].values[0], final_time), \
+        f"Final time in constants.csv ({constants_df['final_time'].values[0]}) does not match the predefined final_time ({final_time})."
+    # Convert final_time to tensor
+    final_time = torch.tensor(constants_df['final_time'], dtype=torch.float64)[0]
+    
     # Rename the generated file to include the combination parameters.
     orig_file = os.path.join('..','..', 'Data', 'membrane_thinning_voltage_data.csv')
     new_filename = f"membrane_thinning_voltage_data_{int(temp_c)}_{int(press)}.csv"
@@ -284,14 +288,15 @@ def simulate_and_evaluate(temp_c, press,
     logging.info(f"Data file renamed to {new_file}")
 
     # ------------------------- Data Loading -------------------------
+
     df = load_data(new_file)
-    Area_cell = 680  # [cm^2] Cell area
 
     # ------------------------- Set Up Data for Training & Testing -------------------------
+
     torch.manual_seed(0)
     logging.info("Preparing training data for the PINN model...")
 
-    factor = 1e2  # Scale factor for thickness training data
+    factor = 1e2  # Scale factor for thickness training data (if not magnitudes are too different)
 
     # Define t_phys as full data (for test evaluation and plotting)
     t_phys = torch.tensor(df['Time'].values, dtype=torch.float64).reshape(-1, 1)
@@ -299,18 +304,18 @@ def simulate_and_evaluate(temp_c, press,
     g_values_full = factor * torch.tensor(df['memThickness'].values, dtype=torch.float64).reshape(-1, 1)
     P_area = torch.tensor((df['P'].values / Area_cell), dtype=torch.float64).reshape(-1, 1)
 
-    # # Use a small subset for training (e.g. first 1/8th of the points)
-    # t_train = t_phys[:max(1, len(t_phys)//8)]
-    # y1_train = f_values_full[:max(1, len(t_phys)//8)]
-    # y2_train = g_values_full[:max(1, len(t_phys)//8)]
+
     # ------------------------- Prepare Training Data -------------------------
+
     t_train = torch.tensor(df['Time'].values, dtype=torch.float64).reshape(-1, 1)
     x_train = f_values_full.clone()
     y1_train = torch.tensor(df['V'].values, dtype=torch.float64).reshape(-1, 1)
     y2_train = factor * torch.tensor(df['memThickness'].values, dtype=torch.float64).reshape(-1, 1)
 
-    n = 10
+    # Use a small subset for training (e.g. first 1/8th of the points)
+    n = 20
     half_index = len(t_train) // 3
+    # half_index = len(t_train)
     indices = torch.linspace(0, half_index - 1, n).long()
     t_train, x_train = t_train[indices], x_train[indices]
     y1_train, y2_train = y1_train[indices], y2_train[indices]
@@ -320,11 +325,12 @@ def simulate_and_evaluate(temp_c, press,
     # t_train, x_train = t_train[indices], x_train[indices]
     # y1_train, y2_train = y1_train[indices], y2_train[indices]
 
-    # # Add noise to the training data (excluding the first point)
-    # noise_factor_y1 = 0.1 * (y1_train.max() - y1_train.min())
-    # noise_factor_y2 = 0.1 * (y2_train.max() - y2_train.min())
-    # y1_train[1:] += noise_factor_y1 * torch.randn_like(y1_train[1:])
-    # y2_train[1:] += noise_factor_y2 * torch.randn_like(y2_train[1:])
+    # Add noise to the training data (excluding the first point)
+    logging.info("Adding noise to training data...")
+    noise_factor_y1 = 0.3 * (y1_train.max() - y1_train.min())
+    noise_factor_y2 = 0.3 * (y2_train.max() - y2_train.min())
+    y1_train[1:] += noise_factor_y1 * torch.randn_like(y1_train[1:])
+    y2_train[1:] += noise_factor_y2 * torch.randn_like(y2_train[1:])
     logging.info("Training data prepared.")
 
     # ------------------------- Define ODE Residuals -------------------------
@@ -367,15 +373,16 @@ def simulate_and_evaluate(temp_c, press,
           lambda_phys=1.0,
           lambda_mse=1.0,
           epochs=5000,
-          lr=0.1,
-          patience=1000,
+          lr=0.01,
+          patience=2000,
           lambda_phys_f=1.0,
           lambda_phys_g=1.0,
           lambda_mse_f=1.0,
           lambda_mse_g=1,
           lambda_boundary=10.0,
           ode_residual_f_func=ode_residual_f_func,
-          ode_residual_g_func=ode_residual_g_func)
+          ode_residual_g_func=ode_residual_g_func,
+          model_dir="../../Models")
     logging.info("Model training complete.")
 
     # ------------------------- Compute MSE Loss on Training and Test Data -------------------------
@@ -433,15 +440,22 @@ def main():
         for further analysis.
     """
     # Define the temperatures (in Celsius) and pressures (in bar)
-    temperatures = [40,80]
-    pressures = [1,30]
-    powers = [500,100] # Power [W]
+    # temperatures = [80]
+    # pressures = [30]
+    # powers = [100] # Power [W]
+    # # FIXME: Review why bigger initial_thickness implies lower voltage
+    # initial_thicknesses = [1.00e-2]  # Initial membrane thickness [cm]
+
+    temperatures = [40,60,80]
+    pressures = [1,10,30]
+    powers = [100,200,500] # Power [W]
     # FIXME: Review why bigger initial_thickness implies lower voltage
-    initial_thicknesses = [1.0e-2,1.78e-2]  # Initial membrane thickness [cm]
+    initial_thicknesses = [1.00e-2,1.75e-2]  # Initial membrane thickness [cm]
     k = None # Example constant parameter for data generation
     noise=0.0
     n = 10
     data_percentage = 3
+    final_time = 8e5
 
     # Results file name
     results_csv = "../../Results/results.csv"
@@ -449,9 +463,22 @@ def main():
 
     
 
-    for temp, press,power, initial_thickness in itertools.product(temperatures, pressures, powers, initial_thicknesses):
+    # Generate all combinations of parameters
+    all_combinations = list(itertools.product(temperatures, pressures, powers, initial_thicknesses))
+
+    # Select only m combinations if m is specified and less than the total number of combinations
+    m = 10  # Example: Select 10 combinations
+
+
+    if m and m < len(all_combinations):
+        selected_combinations = np.random.choice(len(all_combinations), m, replace=False)
+        selected_combinations = [all_combinations[i] for i in selected_combinations]
+    else:
+        selected_combinations = all_combinations
+
+    for temp, press, power, initial_thickness in selected_combinations:
         losses = simulate_and_evaluate(temp_c=temp, press=press, 
-                                       power=power,initial_thickness=initial_thickness, k=k,
+                                       power=power, initial_thickness=initial_thickness, k=k, final_time=final_time,
                                        noise=noise, data_percentage=data_percentage, n=n)
         all_results.append(losses)
         # Append the row to the CSV file
