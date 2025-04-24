@@ -370,6 +370,7 @@ def simulate_and_evaluate(temp_c, press,
           lambda_phys_g=1.0,
           lambda_mse_f=1.0,
           lambda_mse_g=1,
+          lambda_boundary=10.0,
           ode_residual_f_func=ode_residual_f_func,
           ode_residual_g_func=ode_residual_g_func)
     logging.info("Model training complete.")

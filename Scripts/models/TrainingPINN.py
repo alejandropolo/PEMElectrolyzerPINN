@@ -12,7 +12,8 @@ def train(model, t_mse, t_phys, x_phys, y1_train, y2_train, t_val, y1_val, y2_va
           ode_residual_f_func, ode_residual_g_func, 
           epochs=1000, lr=0.001, lambda_mse=1.0, lambda_phys=1.0, 
           lambda_phys_f=1.0, lambda_phys_g=1.0, lambda_mse_f=1.0, lambda_mse_g=1.0, 
-          patience=10):
+          lambda_boundary=1.0, lambda_boundary_f=1.0, lambda_boundary_g=1.0,
+          patience=10, model_dir = "../Models"):
     
     # Convert all training and validation data to float64
     t_mse = t_mse.to(torch.float64)
@@ -41,7 +42,13 @@ def train(model, t_mse, t_phys, x_phys, y1_train, y2_train, t_val, y1_val, y2_va
                                         ode_residual_f_func, ode_residual_g_func, 
                                         lambda_phys_f=lambda_phys_f, 
                                         lambda_phys_g=lambda_phys_g)
-        loss = lambda_phys * physics_loss + lambda_mse * loss_mse
+        
+        # Compute boundary loss if boundary data is provided
+        boundary_loss = model.boundary_loss(lambda_boundary_f=lambda_boundary_f, 
+                                            lambda_boundary_g=lambda_boundary_g)
+        
+        # Total loss
+        loss = lambda_phys * physics_loss + lambda_mse * loss_mse + lambda_boundary * boundary_loss
         
         # Backpropagation and optimization
         loss.backward()
@@ -66,6 +73,7 @@ def train(model, t_mse, t_phys, x_phys, y1_train, y2_train, t_val, y1_val, y2_va
             print(f"Epoch {epoch}: Total Loss = {loss.item():.6f}, "
                   f"MSE Loss = {loss_mse.item():.9f}, "
                   f"Physics Loss = {physics_loss.item():.9f}, "
+                  f"Boundary Loss = {boundary_loss.item():.9f}, "
                   f"Validation Loss = {val_loss_mse.item():.9f}")
         
         # Early stopping

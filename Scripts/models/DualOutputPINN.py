@@ -52,6 +52,16 @@ class DualOutputPINN(nn.Module):
                 lambda_mse_g (float): Weight for the MSE loss of the second dependent variable.
             Returns:
                 torch.Tensor: The computed data-based MSE loss.
+        boundary_loss(t_boundary, f_boundary, g_boundary, lambda_boundary_f, lambda_boundary_g):
+            Computes the boundary loss error.
+            Args:
+                t_boundary (torch.Tensor): Boundary time values.
+                f_boundary (torch.Tensor): Boundary values for the first dependent variable.
+                g_boundary (torch.Tensor): Boundary values for the second dependent variable.
+                lambda_boundary_f (float): Weight for the boundary loss of the first dependent variable.
+                lambda_boundary_g (float): Weight for the boundary loss of the second dependent variable.
+            Returns:
+                torch.Tensor: The computed boundary loss.
     """
     def __init__(self, t0, y01, y02):
         super(DualOutputPINN, self).__init__()
@@ -119,4 +129,28 @@ class DualOutputPINN(nn.Module):
         loss_f = nn.MSELoss()(f_pred, f_data)
         loss_g = nn.MSELoss()(g_pred, g_data)
         return lambda_mse_f*loss_f + lambda_mse_g*loss_g
-    
+
+    def boundary_loss(self,lambda_boundary_f, lambda_boundary_g):
+        """
+        Computes the boundary loss error.
+        Args:
+            t_boundary (torch.Tensor): Boundary time values.
+            f_boundary (torch.Tensor): Boundary values for the first dependent variable.
+            g_boundary (torch.Tensor): Boundary values for the second dependent variable.
+            lambda_boundary_f (float): Weight for the boundary loss of the first dependent variable.
+            lambda_boundary_g (float): Weight for the boundary loss of the second dependent variable.
+        Returns:
+            torch.Tensor: The computed boundary loss.
+        """
+        # Use initial conditions y01 and y02 from self
+        f_boundary = self.y01
+        g_boundary = self.y02
+        
+        # Perform forward pass to get predictions at initial time t0
+        f_pred, g_pred = self.forward(self.t0)
+        
+        # Compute boundary loss using MSE
+        loss_f = nn.MSELoss()(f_pred, f_boundary)
+        loss_g = nn.MSELoss()(g_pred, g_boundary)
+        return lambda_boundary_f * loss_f + lambda_boundary_g * loss_g
+
