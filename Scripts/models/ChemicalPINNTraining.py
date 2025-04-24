@@ -221,11 +221,11 @@ def compute_mse_loss(model: nn.Module, t_data: torch.Tensor,
     return total_loss.item()
 
 
-def simulate_and_evaluate(temp_c, press, 
-                          initial_thickness, power, k, 
-                          Area_cell = 680,
-                          decrease_type = 'chemical',final_time = 8e5,
-                          n=10, data_percentage=3,noise=0.0):
+def simulate_and_evaluate(temp_c, press, initial_thickness, power, k, 
+                          Area_cell=680, decrease_type='chemical', final_time=8e5,
+                          n_steps=1000, n_train=20, data_percentage=3, noise=0.0,
+                          lambda_phys=1.0, lambda_mse=1.0, epochs=5000, lr=0.01,
+                          patience=2000, lambda_boundary=10.0, factor=1e2):
     """
     For a given temperature (in Celsius) and pressure (in bar), generate synthetic data,
     train the PINN, compute the MSE loss on both the training subset and the full test set,
@@ -234,6 +234,23 @@ def simulate_and_evaluate(temp_c, press,
     Parameters:
         temp_c (float): Temperature in Celsius.
         press (float): Pressure in bar.
+        initial_thickness (float): Initial membrane thickness [cm].
+        power (float): Power [W].
+        k (float): Constant parameter for data generation.
+        Area_cell (float): Cell area [cm^2]. Default is 680.
+        decrease_type (str): Type of decrease ('chemical', etc.). Default is 'chemical'.
+        final_time (float): Final simulation time [s]. Default is 8e5.
+        n_steps (int): Number of simulation steps for data generation. Default is 1000.
+        n_train (int): Number of training points. Default is 20.
+        data_percentage (int): Percentage of data to use for training. Default is 3.
+        noise (float): Noise level to add to training data. Default is 0.0.
+        lambda_phys (float): Weight for physics-informed loss. Default is 1.0.
+        lambda_mse (float): Weight for MSE loss. Default is 1.0.
+        epochs (int): Number of training epochs. Default is 5000.
+        lr (float): Learning rate. Default is 0.01.
+        patience (int): Early stopping patience. Default is 2000.
+        lambda_boundary (float): Weight for boundary loss. Default is 10.0.
+        factor (float): Scale factor for thickness training data. Default is 1e2.
 
     Returns:
         dict: A dictionary with training and test MSE losses.
@@ -296,7 +313,7 @@ def simulate_and_evaluate(temp_c, press,
     torch.manual_seed(0)
     logging.info("Preparing training data for the PINN model...")
 
-    factor = 1e2  # Scale factor for thickness training data (if not magnitudes are too different)
+    factor = factor  # Scale factor for thickness training data (if not magnitudes are too different)
 
     # Define t_phys as full data (for test evaluation and plotting)
     t_phys = torch.tensor(df['Time'].values, dtype=torch.float64).reshape(-1, 1)
@@ -313,22 +330,16 @@ def simulate_and_evaluate(temp_c, press,
     y2_train = factor * torch.tensor(df['memThickness'].values, dtype=torch.float64).reshape(-1, 1)
 
     # Use a small subset for training (e.g. first 1/8th of the points)
-    n = 20
-    half_index = len(t_train) // 3
-    # half_index = len(t_train)
+    n = n_train
+    half_index = len(t_train) // data_percentage
     indices = torch.linspace(0, half_index - 1, n).long()
     t_train, x_train = t_train[indices], x_train[indices]
     y1_train, y2_train = y1_train[indices], y2_train[indices]
-    # n = 15
-    # half_index = len(t_train) // 3
-    # indices = torch.linspace(0, half_index - 1, n).long()
-    # t_train, x_train = t_train[indices], x_train[indices]
-    # y1_train, y2_train = y1_train[indices], y2_train[indices]
 
     # Add noise to the training data (excluding the first point)
     logging.info("Adding noise to training data...")
-    noise_factor_y1 = 0.3 * (y1_train.max() - y1_train.min())
-    noise_factor_y2 = 0.3 * (y2_train.max() - y2_train.min())
+    noise_factor_y1 = noise * (y1_train.max() - y1_train.min())
+    noise_factor_y2 = noise * (y2_train.max() - y2_train.min())
     y1_train[1:] += noise_factor_y1 * torch.randn_like(y1_train[1:])
     y2_train[1:] += noise_factor_y2 * torch.randn_like(y2_train[1:])
     logging.info("Training data prepared.")
@@ -367,19 +378,19 @@ def simulate_and_evaluate(temp_c, press,
           x_phys=f_values_full,
           y1_train=y1_train,
           y2_train=y2_train,
-          t_val = t_phys,
-          y1_val = f_values_full,
-          y2_val = g_values_full,
-          lambda_phys=1.0,
-          lambda_mse=1.0,
-          epochs=5000,
-          lr=0.01,
-          patience=2000,
-          lambda_phys_f=1.0,
-          lambda_phys_g=1.0,
-          lambda_mse_f=1.0,
-          lambda_mse_g=1,
-          lambda_boundary=10.0,
+          t_val=t_phys,
+          y1_val=f_values_full,
+          y2_val=g_values_full,
+          lambda_phys=lambda_phys,
+          lambda_mse=lambda_mse,
+          epochs=epochs,
+          lr=lr,
+          patience=patience,
+          lambda_phys_f=lambda_phys,
+          lambda_phys_g=lambda_phys,
+          lambda_mse_f=lambda_mse,
+          lambda_mse_g=lambda_mse,
+          lambda_boundary=lambda_boundary,
           ode_residual_f_func=ode_residual_f_func,
           ode_residual_g_func=ode_residual_g_func,
           model_dir="../../Models")
@@ -477,9 +488,27 @@ def main():
         selected_combinations = all_combinations
 
     for temp, press, power, initial_thickness in selected_combinations:
-        losses = simulate_and_evaluate(temp_c=temp, press=press, 
-                                       power=power, initial_thickness=initial_thickness, k=k, final_time=final_time,
-                                       noise=noise, data_percentage=data_percentage, n=n)
+        losses = simulate_and_evaluate(
+            temp_c=temp,
+            press=press,
+            power=power,
+            initial_thickness=initial_thickness,
+            k=k,
+            Area_cell=Area_cell,
+            decrease_type=decrease_type,
+            final_time=final_time,
+            n_steps=n_steps,
+            n_train=n,
+            data_percentage=data_percentage,
+            noise=noise,
+            lambda_phys=lambda_phys,
+            lambda_mse=lambda_mse,
+            epochs=epochs,
+            lr=lr,
+            patience=patience,
+            lambda_boundary=lambda_boundary,
+            factor=factor
+        )
         all_results.append(losses)
         # Append the row to the CSV file
         df_temp = pd.DataFrame([losses])
