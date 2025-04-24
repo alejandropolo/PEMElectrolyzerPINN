@@ -27,10 +27,10 @@ logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Append custom scripts directory
-sys.path.append('../Scripts')
-from Scripts.models.DualOutputPINN import DualOutputPINN
-from Scripts.models.TrainingPINN import train, plot_results
-from Scripts.data.generateData import generateData
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from DualOutputPINN import DualOutputPINN
+from TrainingPINN import train, plot_results
+from data.generateData import generateData
 
 ### GLOBAL CONSTANTS & CONFIGURATION
 # Physical constants and parameters
@@ -250,17 +250,20 @@ def simulate_and_evaluate(temp_c, press,
     final_time = torch.tensor(constants_df['final_time'], dtype=torch.float64)[0]
     n_steps = 1000                   # Number of simulation steps for data generation
 
+    # Check if the file already exists and delete it if necessary
+    orig_file = os.path.join(os.path.dirname(__file__),'..','..', 'Data', 'membrane_thinning_voltage_data.csv')
+    if os.path.exists(orig_file):
+        os.remove(orig_file)
+        logging.info(f"Existing file {orig_file} deleted.")
+    
     # ------------------------- Generate Data -------------------------
     # Call the generateData function.
     # It is assumed that generateData creates a CSV file named "membrane_thinning_voltage_data.csv"
     # in the ../Data directory. To avoid overwriting data between runs, we rename the file.
 
-    # Check if the file already exists and delete it if necessary
-    orig_file = os.path.join('..', 'Data', 'membrane_thinning_voltage_data.csv')
-    if os.path.exists(orig_file):
-        os.remove(orig_file)
-        logging.info(f"Existing file {orig_file} deleted.")
-
+    # The function is assumed to create a CSV file named "membrane_thinning_voltage_data.csv"
+    # in the ../Data directory.
+    # and a CSV file names constants.csv
     generateData(decreaseType=decrease_type,
                  k=k,
                  Tk=Tk.item(),
@@ -269,11 +272,11 @@ def simulate_and_evaluate(temp_c, press,
                  initial_thickness=initial_thickness,
                  final_time=final_time.item(),
                  n_steps=n_steps,
-                 save_path='../Data')
+                 save_path='../../Data')
     # Rename the generated file to include the combination parameters.
-    orig_file = os.path.join('..', 'Data', 'membrane_thinning_voltage_data.csv')
+    orig_file = os.path.join('..','..', 'Data', 'membrane_thinning_voltage_data.csv')
     new_filename = f"membrane_thinning_voltage_data_{int(temp_c)}_{int(press)}.csv"
-    new_file = os.path.join('..', 'Data', new_filename)
+    new_file = os.path.join('..','..', 'Data', new_filename)
     if os.path.exists(new_file):
         os.remove(new_file)
         logging.info(f"Existing file {new_file} deleted.")
@@ -325,7 +328,7 @@ def simulate_and_evaluate(temp_c, press,
     logging.info("Training data prepared.")
 
     # ------------------------- Define ODE Residuals -------------------------
-    constants_df = pd.read_csv('../Data/constants.csv')
+    constants_df = pd.read_csv('../../Data/constants.csv')
     k1_mean = torch.tensor(constants_df['k1'].mean(), dtype=torch.float32)
     k2_mean = torch.tensor(constants_df['k2'].mean(), dtype=torch.float32)
     k3_mean = torch.tensor(constants_df['k3'].mean(), dtype=torch.float32)
@@ -394,7 +397,7 @@ def simulate_and_evaluate(temp_c, press,
     g_test = g_values_full.detach().numpy()
     f_test = f_values_full.detach().numpy()
     # Generate a filepath with the specific temperature and pressure
-    filepath = f"../Results/Results_{int(temp_c)}_{int(press)}_{int(power)}_{initial_thickness:.2e}_{noise:.2f}_{n}.png"
+    filepath = f"../../Results/Results_{int(temp_c)}_{int(press)}_{int(power)}_{initial_thickness:.2e}_{noise:.2f}_{n}.png"
     plot_results(model, t_phys, t_train, y1_train, y2_train,
                  f_test=f_test, g_test=g_test, figsize=(18, 6), 
                  plot=False, filepath=filepath)
@@ -441,7 +444,7 @@ def main():
     data_percentage = 3
 
     # Results file name
-    results_csv = "results.csv"
+    results_csv = "../../Results/results.csv"
     all_results = []
 
     

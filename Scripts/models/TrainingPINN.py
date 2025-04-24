@@ -95,7 +95,7 @@ def train(model, t_mse, t_phys, x_phys, y1_train, y2_train, t_val, y1_val, y2_va
     print("Training complete!")
     print(f"Early stopping at epoch {epoch}. Best training loss: {best_loss:.9f}. Best MSE loss: {best_mse_loss.item():.9f}. Best Val loss: {best_val_loss_mse.item():.9f}.")
     # Save the model with the best state and the timestamp in the folder ../Models
-    model_dir = "../Models"
+    # model_dir = "../Models"
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
     model_path = f"{model_dir}/BestModel_{int(time.time())}.pt"
