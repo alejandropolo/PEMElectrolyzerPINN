@@ -161,10 +161,6 @@ def generateData(decreaseType='linear', k =1e-6, Tk=353, pres=30,
         k2[i] = k2_val
         k3[i] = k3_val
 
-    # Create Data folder if needed
-    if not os.path.exists('./Data'):
-        os.makedirs('./Data')
-
     # Save main data
     if decreaseType == 'chemical':
         data = np.column_stack((
@@ -227,4 +223,4 @@ def generateData(decreaseType='linear', k =1e-6, Tk=353, pres=30,
         plt.show()
 
 if __name__ == "__main__":
-    generateData(decreaseType='chemical')  # Change degradation type as needed
+    generateData(decreaseType='chemical', save_path='../../Data')  # Change degradation type as needed
