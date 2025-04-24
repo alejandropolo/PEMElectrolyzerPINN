@@ -21,6 +21,7 @@ import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import yaml  # Import YAML library for configuration
 
 # Configure logging to print to the command prompt.
 logging.basicConfig(level=logging.INFO,
@@ -432,6 +433,41 @@ def simulate_and_evaluate(temp_c, press, initial_thickness, power, k,
         "Test_MSE": test_mse
     }
 
+def load_config(config_path: str) -> dict:
+    """
+    Load configuration parameters from a YAML file and ensure correct types.
+
+    Parameters:
+        config_path (str): Path to the YAML configuration file.
+
+    Returns:
+        dict: Dictionary containing configuration parameters with correct types.
+    """
+    with open(config_path, 'r') as file:
+        config = yaml.safe_load(file)
+
+    # Ensure correct types for parameters
+    config['temperatures'] = [float(temp) for temp in config['temperatures']]
+    config['pressures'] = [float(press) for press in config['pressures']]
+    config['powers'] = [float(power) for power in config['powers']]
+    config['initial_thicknesses'] = [float(thickness) for thickness in config['initial_thicknesses']]
+    config['k'] = None if config['k'] is None else float(config['k'])
+    config['noise'] = float(config['noise'])
+    config['n'] = int(config['n'])
+    config['data_percentage'] = int(config['data_percentage'])
+    config['final_time'] = float(config['final_time'])
+    config['Area_cell'] = float(config['Area_cell'])
+    config['n_steps'] = int(config['n_steps'])
+    config['lambda_phys'] = float(config['lambda_phys'])
+    config['lambda_mse'] = float(config['lambda_mse'])
+    config['epochs'] = int(config['epochs'])
+    config['lr'] = float(config['lr'])
+    config['patience'] = int(config['patience'])
+    config['lambda_boundary'] = float(config['lambda_boundary'])
+    config['factor'] = float(config['factor'])
+    config['m'] = int(config['m'])
+
+    return config
 
 def main():
     """"
@@ -450,38 +486,40 @@ def main():
         under different operating conditions. The results are stored in a CSV file 
         for further analysis.
     """
-    # Define the temperatures (in Celsius) and pressures (in bar)
-    # temperatures = [80]
-    # pressures = [30]
-    # powers = [100] # Power [W]
-    # # FIXME: Review why bigger initial_thickness implies lower voltage
-    # initial_thicknesses = [1.00e-2]  # Initial membrane thickness [cm]
+    # Load configuration from YAML file
+    config_path = "../../config.yaml"
+    config = load_config(config_path)
 
-    temperatures = [40,60,80]
-    pressures = [1,10,30]
-    powers = [100,200,500] # Power [W]
-    # FIXME: Review why bigger initial_thickness implies lower voltage
-    initial_thicknesses = [1.00e-2,1.75e-2]  # Initial membrane thickness [cm]
-    k = None # Example constant parameter for data generation
-    noise=0.0
-    n = 10
-    data_percentage = 3
-    final_time = 8e5
+    # Extract parameters from the configuration
+    temperatures = config['temperatures']
+    pressures = config['pressures']
+    powers = config['powers']
+    initial_thicknesses = config['initial_thicknesses']
+    k = config['k']
+    noise = config['noise']
+    n = config['n']
+    data_percentage = config['data_percentage']
+    final_time = config['final_time']
+    results_csv = config['results_csv']
+    Area_cell = config['Area_cell']
+    decrease_type = config['decrease_type']
+    n_steps = config['n_steps']
+    lambda_phys = config['lambda_phys']
+    lambda_mse = config['lambda_mse']
+    epochs = config['epochs']
+    lr = config['lr']
+    patience = config['patience']
+    lambda_boundary = config['lambda_boundary']
+    factor = config['factor']
 
-    # Results file name
-    results_csv = "../../Results/results.csv"
     all_results = []
-
-    
 
     # Generate all combinations of parameters
     all_combinations = list(itertools.product(temperatures, pressures, powers, initial_thicknesses))
 
     # Select only m combinations if m is specified and less than the total number of combinations
-    m = 10  # Example: Select 10 combinations
-
-
-    if m and m < len(all_combinations):
+    m = config.get('m', len(all_combinations))
+    if m < len(all_combinations):
         selected_combinations = np.random.choice(len(all_combinations), m, replace=False)
         selected_combinations = [all_combinations[i] for i in selected_combinations]
     else:
