@@ -24,7 +24,7 @@ This repository contains scripts, data, and notebooks for modeling, analyzing, a
 
 ### Modelling
 
-1. **DualOutputPINN.py**: Implements a Physics-Informed Neural Network (PINN) for solving systems of ODEs with two dependent variables. Includes methods for forward propagation, physics-based loss computation, and data-based loss computation.
+1. **PEMElectrolyzerPINN.py**: Implements a Physics-Informed Neural Network (PINN) for solving systems of ODEs with two dependent variables. Includes methods for forward propagation, physics-based loss computation, and data-based loss computation.
 2. **MultiPINN.py**: Demonstrates a dual-output neural network trained using a combination of data-driven and physics-informed losses derived from ODE residuals. Includes a complete pipeline for generating synthetic data, defining the architecture, training, and visualizing results.
 3. **DualOutputNN.py**: Provides an example of defining and training a dual-output neural network using PyTorch. Includes functions for generating synthetic data, defining the architecture, training, and visualizing results.
 4. **chemicalPINNTraining.py**: Trains and evaluates a PINN for simulating chemical degradation processes in PEMWE systems. Simulates various combinations of temperature, pressure, power, and initial membrane thickness, and logs performance metrics for analysis.

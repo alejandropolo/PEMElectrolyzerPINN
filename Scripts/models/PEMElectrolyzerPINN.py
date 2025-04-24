@@ -11,7 +11,7 @@ import os
 
 
 # TODO: Check why is it neccesary to use float64
-class DualOutputPINN(nn.Module):
+class PEMElectrolyzerPINN(nn.Module):
     """
     A PyTorch implementation of a Physics-Informed Neural Network (PINN) with dual outputs.
     This class is designed to solve systems of ordinary differential equations (ODEs) 
@@ -64,7 +64,7 @@ class DualOutputPINN(nn.Module):
                 torch.Tensor: The computed boundary loss.
     """
     def __init__(self, t0, y01, y02):
-        super(DualOutputPINN, self).__init__()
+        super(PEMElectrolyzerPINN, self).__init__()
         # All layers use torch.float64
         self.hidden = nn.Sequential(
             nn.Linear(1, 32, dtype=torch.float64),

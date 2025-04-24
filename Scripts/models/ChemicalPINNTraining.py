@@ -28,7 +28,7 @@ logging.basicConfig(level=logging.INFO,
 
 # Append custom scripts directory
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from DualOutputPINN import DualOutputPINN
+from PEMElectrolyzerPINN import PEMElectrolyzerPINN
 from TrainingPINN import train, plot_results
 from data.generateData import generateData
 
@@ -360,7 +360,7 @@ def simulate_and_evaluate(temp_c, press,
 
     # ------------------------- Build and Train the Model -------------------------
     logging.info("Initializing and training the PINN model...")
-    model = DualOutputPINN(t0=t_train[0], y01=y1_train[0], y02=y2_train[0])
+    model = PEMElectrolyzerPINN(t0=t_train[0], y01=y1_train[0], y02=y2_train[0])
     train(model=model,
           t_mse=t_train,
           t_phys=t_phys,
