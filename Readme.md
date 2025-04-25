@@ -59,3 +59,17 @@ The `Results` folder stores outputs from simulations, including trained models, 
    ```bash
    git clone <repository-url>
    cd <repository-folder>
+   ```
+
+2. Create and activate the environment using the `environment.yml` file:
+   ```bash
+   conda env create -f environment.yml
+   conda activate <environment-name>
+   ```
+
+3. Run the scripts or notebooks as needed. For example, to train a PINN:
+   ```bash
+   python TrainingPINN.py
+   ```
+
+4. Explore the results in the `Results` folder.
