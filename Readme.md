@@ -78,9 +78,10 @@ The `Results` folder stores outputs from simulations, including trained models, 
    conda activate <environment-name>
    ```
 
-3. Run the scripts or notebooks as needed. For example, to train a PINN:
+3. Run the scripts or notebooks as needed. For example, to train a PINN with the parameters defined in config.yaml:
    ```bash
-   python TrainingPINN.py
+   cd Scripts/models
+   python ChemicalPINNTraining.py 
    ```
 
 4. Explore the results in the `Results` folder.
