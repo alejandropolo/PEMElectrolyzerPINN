@@ -43,13 +43,24 @@ This repository contains scripts, data, and notebooks for modeling, analyzing, a
 
 The `Data` folder contains various datasets used for training and analysis:
 
-1. 
-
+1. **membrane_thinning_voltage_data_<temp>_<pressure>.csv**: Synthetic data generated for specific temperature and pressure combinations, including time, membrane thickness, voltage, current, and other parameters.
+2. **constants.csv**: Contains physical constants and parameters used during data generation and training.
 ---
 
 ## RESULTS
 
-The `Results` folder stores outputs from simulations, including trained models, performance metrics, and visualizations.
+The `Results` folder stores outputs from simulations, including trained models, performance metrics, and visualizations:
+
+1. **Results_<temp>_<pressure>_<power>_<thickness>_<noise>_<n>.png**: Plots of predictions vs. true values for membrane thickness and voltage under specific conditions.
+2. **results.csv**: Contains simulation results for various combinations of temperature, pressure, power, and initial membrane thickness. Includes columns for:
+   - `Temperature_C`: Temperature in Celsius.
+   - `Pressure_bar`: Pressure in bar.
+   - `Power_W`: Power in watts.
+   - `Initial_Thickness_cm`: Initial membrane thickness in centimeters.
+   - `Noise`: Noise level added to the training data.
+   - `N`: Number of training points.
+   - `Train_MSE`: Mean Squared Error (MSE) loss on the training subset.
+   - `Test_MSE`: Mean Squared Error (MSE) loss on the full test set.
 
 ---
 
