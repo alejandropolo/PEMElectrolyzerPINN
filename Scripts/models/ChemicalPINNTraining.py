@@ -33,6 +33,10 @@ from PEMElectrolyzerPINN import PEMElectrolyzerPINN
 from TrainingPINN import train, plot_results
 from data.generateData import generateData
 
+# Set Seed for Reproducibility
+torch.manual_seed(0)
+np.random.seed(0)
+
 ### GLOBAL CONSTANTS & CONFIGURATION
 # Physical constants and parameters
 MM_H2O = torch.tensor(18.0, dtype=torch.float64)   # Water molar mass [g/mol]
