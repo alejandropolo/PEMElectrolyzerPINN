@@ -24,11 +24,19 @@ This repository contains scripts, data, and notebooks for modeling, analyzing, a
 
 ### Modelling
 
-1. **PEMElectrolyzerPINN.py**: Implements a Physics-Informed Neural Network (PINN) for solving systems of ODEs with two dependent variables. Includes methods for forward propagation, physics-based loss computation, and data-based loss computation.
-2. **MultiPINN.py**: Demonstrates a dual-output neural network trained using a combination of data-driven and physics-informed losses derived from ODE residuals. Includes a complete pipeline for generating synthetic data, defining the architecture, training, and visualizing results.
-3. **DualOutputNN.py**: Provides an example of defining and training a dual-output neural network using PyTorch. Includes functions for generating synthetic data, defining the architecture, training, and visualizing results.
-4. **chemicalPINNTraining.py**: Trains and evaluates a PINN for simulating chemical degradation processes in PEMWE systems. Simulates various combinations of temperature, pressure, power, and initial membrane thickness, and logs performance metrics for analysis.
-5. **TrainingPINN.py**: Trains a PINN for modeling and solving ODEs related to PEMWE. Includes utilities for early stopping, saving the best model, and visualizing results such as voltage and membrane thickness predictions.
+1. **PEMElectrolyzerPINN.py**: Implements a Physics-Informed Neural Network (PINN) for solving systems of ODEs with two dependent variables:  
+   - **Voltage (V)**: Represents the electrical potential across the PEM electrolyzer.  
+   - **Membrane Thickness (cm)**: Represents the thickness of the membrane, which decreases over time due to degradation.  
+   The script includes:  
+   - A custom neural network architecture for dual-output predictions.  
+   - Methods for computing physics-based losses derived from ODE residuals.  
+   - Support for boundary conditions and data-based loss computation.
+- Utilities for forward propagation, training, and evaluation of the PINN model.  
+   This script is the core of the modeling process, enabling the integration of physical laws and experimental data to predict system behavior.
+2. **ChemicalPINNTraining.py**: Trains and evaluates a PINN for simulating chemical degradation processes in PEMWE systems. Simulates various combinations of temperature, pressure, power, and initial membrane thickness, and logs performance metrics for analysis.
+3. **TrainingPINN.py**: Trains a PINN for modeling and solving ODEs related to PEMWE. Includes utilities for early stopping, saving the best model, and visualizing results such as voltage and membrane thickness predictions.
+4. **MultiPINN.py**: Demonstrates a dual-output neural network trained using a combination of data-driven and physics-informed losses derived from ODE residuals. Includes a complete pipeline for generating synthetic data, defining the architecture, training, and visualizing results.
+5. **DualOutputNN.py**: Provides an example of defining and training a dual-output neural network using PyTorch. Includes functions for generating synthetic data, defining the architecture, training, and visualizing results.
 
 ---
 
@@ -51,7 +59,11 @@ The `Data` folder contains various datasets used for training and analysis:
 
 The `Results` folder stores outputs from simulations, including trained models, performance metrics, and visualizations:
 
-1. **Results_<temp>_<pressure>_<power>_<thickness>_<noise>_<n>.png**: Plots of predictions vs. true values for membrane thickness and voltage under specific conditions.
+1. **Results_temp_pressure_power_thickness_noise_n.png**  
+   Plots of predictions vs. true values for membrane thickness and voltage under specific conditions:  
+   - **Voltage (V)**: Represents the predicted and true voltage values over time, which are critical for understanding the efficiency of the PEM electrolyzer.  
+   - **Membrane Thickness (cm)**: Represents the predicted and true membrane thickness over time, which is essential for analyzing the degradation process.
+
 2. **results.csv**: Contains simulation results for various combinations of temperature, pressure, power, and initial membrane thickness. Includes columns for:
    - `Temperature_C`: Temperature in Celsius.
    - `Pressure_bar`: Pressure in bar.
