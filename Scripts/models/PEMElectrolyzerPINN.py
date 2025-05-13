@@ -91,8 +91,12 @@ class PEMElectrolyzerPINN(nn.Module):
         features = self.hidden(x)
         # Outputs will automatically be float64 due to layer definitions
         # Apply exponential activation to ensure positive outputs
-        y1 = torch.exp(self.output1(features))  # First output, enforced to be positive
-        y2 = torch.exp(self.output2(features))  # Second output, enforced to be positive
+        # y1 = torch.exp(self.output1(features))  # First output, enforced to be positive
+        # # y2 = torch.exp(self.output2(features))  # Second output, enforced to be positive
+        # y2 = self.output2(features)  # Second output, enforced to be positive
+
+        y1 = self.y01 + (x - self.t0) * torch.exp(self.output1(features))
+        y2 = self.y02 + (x - self.t0) * self.output2(features)
         return y1, y2
     
     def physics_loss(self, t_phys, x_phys, ode_residual_f_func, ode_residual_g_func, lambda_phys_f, lambda_phys_g):
