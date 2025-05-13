@@ -22,4 +22,5 @@ lr: 0.01
 patience: 2000
 lambda_boundary: 10.0
 factor: 1e2
+param_inference: False
 m: 10

@@ -5,7 +5,7 @@ import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
 import time
-
+import os
 
 # Training function
 def train(model, t_mse, t_phys, x_phys, y1_train, y2_train, t_val, y1_val, y2_val, 
@@ -13,7 +13,7 @@ def train(model, t_mse, t_phys, x_phys, y1_train, y2_train, t_val, y1_val, y2_va
           epochs=1000, lr=0.001, lambda_mse=1.0, lambda_phys=1.0, 
           lambda_phys_f=1.0, lambda_phys_g=1.0, lambda_mse_f=1.0, lambda_mse_g=1.0, 
           lambda_boundary=1.0, lambda_boundary_f=1.0, lambda_boundary_g=1.0,
-          patience=10, model_dir = "../Models"):
+          patience=10, model_dir = "../Models", param_inference = False):
     
     # Convert all training and validation data to float64
     t_mse = t_mse.to(torch.float64)
@@ -75,7 +75,10 @@ def train(model, t_mse, t_phys, x_phys, y1_train, y2_train, t_val, y1_val, y2_va
                   f"Physics Loss = {physics_loss.item():.9f}, "
                   f"Boundary Loss = {boundary_loss.item():.9f}, "
                   f"Validation Loss = {val_loss_mse.item():.9f}")
-        
+            # Print the inferred value of k if parameter inference is enabled
+            if param_inference:
+                print(f"Inferred k: {model.k.item():.6f}")
+            
         # Early stopping
         if patience_counter >= patience:
             break
@@ -101,10 +104,6 @@ def train(model, t_mse, t_phys, x_phys, y1_train, y2_train, t_val, y1_val, y2_va
     model_path = f"{model_dir}/BestModel_{int(time.time())}.pt"
     torch.save(model.state_dict(), model_path)
     print(f"Model saved to {model_path}")
-
-import os
-import torch
-import matplotlib.pyplot as plt
 
 # Function to plot results and save the figure using a provided file path.
 def plot_results(model, t_test, t_train_mse, f_train, g_train, f_test, g_test, 
@@ -150,7 +149,7 @@ def plot_results(model, t_test, t_train_mse, f_train, g_train, f_test, g_test,
         
         plt.legend()
         plt.title("True vs Predicted Membrane Thickness")
-        plt.ylim(0, 2)  # Set y-axis limits between 1.5 and 3
+        # plt.ylim(0, 2)  # Set y-axis limits between 1.5 and 3
         plt.tight_layout()
 
         # If a filepath is provided, ensure the directory exists and save the figure.

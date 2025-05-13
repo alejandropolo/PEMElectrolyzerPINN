@@ -230,7 +230,7 @@ def simulate_and_evaluate(temp_c, press, initial_thickness, power, k,
                           Area_cell=680, decrease_type='chemical', final_time=8e5,
                           n_steps=1000, n_train=20, data_percentage=3, noise=0.0,
                           lambda_phys=1.0, lambda_mse=1.0, epochs=5000, lr=0.01,
-                          patience=2000, lambda_boundary=10.0, factor=1e2):
+                          patience=2000, lambda_boundary=10.0, factor=1e2, param_inference = False):
     """
     For a given temperature (in Celsius) and pressure (in bar), generate synthetic data,
     train the PINN, compute the MSE loss on both the training subset and the full test set,
@@ -318,7 +318,7 @@ def simulate_and_evaluate(temp_c, press, initial_thickness, power, k,
     torch.manual_seed(0)
     logging.info("Preparing training data for the PINN model...")
 
-    factor = factor  # Scale factor for thickness training data (if not magnitudes are too different)
+    # factor = factor  # Scale factor for thickness training data (if not magnitudes are too different)
 
     # Define t_phys as full data (for test evaluation and plotting)
     t_phys = torch.tensor(df['Time'].values, dtype=torch.float64).reshape(-1, 1)
@@ -370,9 +370,13 @@ def simulate_and_evaluate(temp_c, press, initial_thickness, power, k,
     MMF = 18.998403
     A_const = 3.6 * k10 * Cmemb * MMF * 3600 / 1e4
     lam = A_const / 164
-
-    ode_residual_g_func = lambda f_pred, g_pred, dg_dx, t: \
-        dg_dx + lam * compute_CH2O2_CHO(Tk, P_area / f_pred, press) * g_pred * final_time
+    
+    if not param_inference:
+        ode_residual_g_func = lambda f_pred, g_pred, dg_dx, t, k_pred: \
+            dg_dx + ((3.6 * k10 * Cmemb * MMF * 3600 / 1e4) / 164) * compute_CH2O2_CHO(Tk, P_area / f_pred, press) * g_pred * final_time
+    else: 
+        ode_residual_g_func = lambda f_pred, g_pred, dg_dx, t, k_pred: \
+            dg_dx + ((3.6 * k_pred * Cmemb * MMF * 3600 / 1e4) / 164) * compute_CH2O2_CHO(Tk, P_area / f_pred, press) * g_pred * final_time
 
     # ------------------------- Build and Train the Model -------------------------
     logging.info("Initializing and training the PINN model...")
@@ -398,7 +402,8 @@ def simulate_and_evaluate(temp_c, press, initial_thickness, power, k,
           lambda_boundary=lambda_boundary,
           ode_residual_f_func=ode_residual_f_func,
           ode_residual_g_func=ode_residual_g_func,
-          model_dir="../../Models")
+          model_dir="../../Models",
+          param_inference=param_inference)
     logging.info("Model training complete.")
 
     # ------------------------- Compute MSE Loss on Training and Test Data -------------------------
@@ -515,6 +520,7 @@ def main():
     patience = config['patience']
     lambda_boundary = config['lambda_boundary']
     factor = config['factor']
+    param_inference = config['param_inference']
 
     all_results = []
 
@@ -549,7 +555,8 @@ def main():
             lr=lr,
             patience=patience,
             lambda_boundary=lambda_boundary,
-            factor=factor
+            factor=factor,
+            param_inference=param_inference
         )
         all_results.append(losses)
         # Append the row to the CSV file

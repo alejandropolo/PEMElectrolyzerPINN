@@ -80,6 +80,10 @@ class PEMElectrolyzerPINN(nn.Module):
         self.y01 = y01.to(torch.float64) if isinstance(y01, torch.Tensor) else torch.tensor(y01, dtype=torch.float64)
         self.y02 = y02.to(torch.float64) if isinstance(y02, torch.Tensor) else torch.tensor(y02, dtype=torch.float64)
 
+        # Add learnable parameter k for parameter inference
+        self.k = nn.Parameter(torch.tensor(800.0, dtype=torch.float64))  # Initialize k to 1.0
+
+
     def forward(self, x):
         # Convert input to float64 if needed
         x = x.to(torch.float64) if x.dtype != torch.float64 else x
@@ -112,7 +116,7 @@ class PEMElectrolyzerPINN(nn.Module):
         
         # Compute the residuals of the ODEs using the provided residual functions
         ode_residual_f = ode_residual_f_func(f_pred, g_pred, df_dx, dg_dx, t_phys, x_phys)
-        ode_residual_g = ode_residual_g_func(f_pred, g_pred, dg_dx, t_phys)
+        ode_residual_g = ode_residual_g_func(f_pred, g_pred, dg_dx, t_phys, self.k)
         
         # Compute and return the weighted mean squared residuals as the physics-based loss
         return lambda_phys_f*torch.mean(ode_residual_f**2) + lambda_phys_g*torch.mean(ode_residual_g**2)
