@@ -70,14 +70,14 @@ def train(model, t_mse, t_phys, x_phys, y1_train, y2_train, t_val, y1_val, y2_va
             patience_counter += 1
         
         if epoch % max(1, epochs // 50) == 0:
+            inferred_k_str = f", Inferred k: {model.k.item():.6f}" if param_inference else ""
             print(f"Epoch {epoch}: Total Loss = {loss.item():.6f}, "
-                  f"MSE Loss = {loss_mse.item():.9f}, "
-                  f"Physics Loss = {physics_loss.item():.9f}, "
-                  f"Boundary Loss = {boundary_loss.item():.9f}, "
-                  f"Validation Loss = {val_loss_mse.item():.9f}")
-            # Print the inferred value of k if parameter inference is enabled
-            if param_inference:
-                print(f"Inferred k: {model.k.item():.6f}")
+                f"MSE Loss = {loss_mse.item():.9f}, "
+                f"Physics Loss = {physics_loss.item():.9f}, "
+                f"Boundary Loss = {boundary_loss.item():.9f}, "
+                f"Validation Loss = {val_loss_mse.item():.9f}"
+                f"{inferred_k_str}")
+
             
         # Early stopping
         if patience_counter >= patience:
@@ -96,8 +96,11 @@ def train(model, t_mse, t_phys, x_phys, y1_train, y2_train, t_val, y1_val, y2_va
                                     lambda_mse_g=lambda_mse_g)
     
     print("Training complete!")
-    print(f"Early stopping at epoch {epoch}. Best training loss: {best_loss:.9f}. Best MSE loss: {best_mse_loss.item():.9f}. Best Val loss: {best_val_loss_mse.item():.9f}.")
-    # Save the model with the best state and the timestamp in the folder ../Models
+    inferred_k_str = f", Inferred k: {model.k.item():.6f}" if param_inference else ""
+    print(f"Early stopping at epoch {epoch}. Best training loss: {best_loss:.9f}. "
+        f"Best MSE loss: {best_mse_loss.item():.9f}. "
+        f"Best Val loss: {best_val_loss_mse.item():.9f}{inferred_k_str}.")
+# Save the model with the best state and the timestamp in the folder ../Models
     # model_dir = "../Models"
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
