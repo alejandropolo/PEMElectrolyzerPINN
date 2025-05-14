@@ -67,13 +67,15 @@ class PEMElectrolyzerPINN(nn.Module):
         super(PEMElectrolyzerPINN, self).__init__()
         # All layers use torch.float64
         self.hidden = nn.Sequential(
-            nn.Linear(1, 32, dtype=torch.float64),
+            nn.Linear(1, 10, dtype=torch.float64),
             nn.Sigmoid(),
-            nn.Linear(32, 32, dtype=torch.float64),
+            nn.Linear(10, 5, dtype=torch.float64),
+            # nn.Sigmoid(),
+            # nn.Linear(100, 100, dtype=torch.float64),
             nn.Sigmoid()
         )
-        self.output1 = nn.Linear(32, 1, dtype=torch.float64)  # First output
-        self.output2 = nn.Linear(32, 1, dtype=torch.float64)  # Second output
+        self.output1 = nn.Linear(5, 1, dtype=torch.float64)  # First output
+        self.output2 = nn.Linear(5, 1, dtype=torch.float64)  # Second output
         
         # Ensure initial conditions are float64
         self.t0 = t0.to(torch.float64) if isinstance(t0, torch.Tensor) else torch.tensor(t0, dtype=torch.float64)
@@ -81,7 +83,7 @@ class PEMElectrolyzerPINN(nn.Module):
         self.y02 = y02.to(torch.float64) if isinstance(y02, torch.Tensor) else torch.tensor(y02, dtype=torch.float64)
 
         # Add learnable parameter k for parameter inference
-        self.k = nn.Parameter(torch.tensor(100.0, dtype=torch.float64))  # Initialize k to 1.0
+        self.k = nn.Parameter(torch.tensor(0.0, dtype=torch.float64))  # Initialize k to 1.0
 
 
     def forward(self, x):

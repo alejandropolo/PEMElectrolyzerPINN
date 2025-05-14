@@ -7,9 +7,9 @@ powers:
 initial_thicknesses:
   - 1.5e-2
 k: null
-noise: 0.0
-n: 50
-data_percentage: 1
+noise: 0.1
+n: 100
+data_percentage: 3
 final_time: 8e5
 results_csv: "../../Results/results.csv"
 Area_cell: 680
@@ -17,10 +17,10 @@ decrease_type: "chemical"
 n_steps: 1000
 lambda_phys: 1.0
 lambda_mse: 1.0
-epochs: 100000
-lr: 0.1
+epochs: 10000
+lr: 0.005
 patience: 10000
-lambda_boundary: 10.0
+lambda_boundary: 100.0
 factor: 1e2
 param_inference: True
 m: 10
