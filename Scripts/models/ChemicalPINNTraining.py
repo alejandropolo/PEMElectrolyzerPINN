@@ -425,7 +425,7 @@ def simulate_and_evaluate(temp_c, press, initial_thickness, power, k,
     g_test = g_values_full.detach().numpy()
     f_test = f_values_full.detach().numpy()
     # Generate a filepath with the specific temperature and pressure
-    filepath = f"../../Results/Results_{int(temp_c)}_{int(press)}_{int(power)}_{initial_thickness:.2e}_{noise:.2f}_{n}.png"
+    filepath = f"../../Results/Results_{int(temp_c)}_{int(press)}_{int(power)}_{initial_thickness:.2e}_{noise:.2f}_{n}_{data_percentage}_{lambda_phys}_{lambda_mse}_{epochs}_{lr}_{patience}_{lambda_boundary}_{factor}_{param_inference}.png"
     plot_results(model, t_phys, t_train, y1_train, y2_train,
                  f_test=f_test, g_test=g_test, figsize=(18, 6), 
                  plot=False, filepath=filepath)
