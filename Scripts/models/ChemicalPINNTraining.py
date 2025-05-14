@@ -363,7 +363,8 @@ def simulate_and_evaluate(temp_c, press, initial_thickness, power, k,
         df_dx - (-k2_mean * df_dx / f_pred + k3_mean * factor * P_area *
                  (-(dg_dx / (f_pred * g_pred**2)) - (df_dx / (g_pred * f_pred**2))))
 
-    k10 = 1e3
+    k10 = 1
+    factor_k = 1e3
     EW = 1.1
     rhonaf = 1980
     Cmemb = rhonaf / EW
@@ -373,10 +374,10 @@ def simulate_and_evaluate(temp_c, press, initial_thickness, power, k,
     
     if not param_inference:
         ode_residual_g_func = lambda f_pred, g_pred, dg_dx, t, k_pred: \
-            dg_dx + ((3.6 * k10 * Cmemb * MMF * 3600 / 1e4) / 164) * compute_CH2O2_CHO(Tk, P_area / f_pred, press) * g_pred * final_time
+            dg_dx + ((3.6 * k10 *factor_k* Cmemb * MMF * 3600 / 1e4) / 164) * compute_CH2O2_CHO(Tk, P_area / f_pred, press) * g_pred * final_time
     else: 
         ode_residual_g_func = lambda f_pred, g_pred, dg_dx, t, k_pred: \
-            dg_dx + ((3.6 * k_pred * Cmemb * MMF * 3600 / 1e4) / 164) * compute_CH2O2_CHO(Tk, P_area / f_pred, press) * g_pred * final_time
+            dg_dx + ((3.6 * k_pred *factor_k* Cmemb * MMF * 3600 / 1e4) / 164) * compute_CH2O2_CHO(Tk, P_area / f_pred, press) * g_pred * final_time
 
     # ------------------------- Build and Train the Model -------------------------
     logging.info("Initializing and training the PINN model...")
