@@ -265,7 +265,7 @@ def simulate_and_evaluate(temp_c, press, initial_thickness, power, k,
 
     # Convert temperature from Celsius to Kelvin
     Tk = torch.tensor(temp_c + 273, dtype=torch.float64)
-    n_steps = 1000                   # Number of simulation steps for data generation
+    # n_steps = 1000                   # Number of simulation steps for data generation
 
     # Check if the file already exists and delete it if necessary
     orig_file = os.path.join(os.path.dirname(__file__),'..','..', 'Data', 'membrane_thinning_voltage_data.csv')
@@ -378,6 +378,23 @@ def simulate_and_evaluate(temp_c, press, initial_thickness, power, k,
     else: 
         ode_residual_g_func = lambda f_pred, g_pred, dg_dx, t, k_pred: \
             dg_dx + ((3.6 * k_pred *factor_k* Cmemb * MMF * 3600 / 1e4) / 164) * compute_CH2O2_CHO(Tk, P_area / f_pred, press) * g_pred * final_time
+        
+    # Save training data to CSV
+    train_data = pd.DataFrame({
+        'Time': t_train.numpy().flatten(),
+        'V': y1_train.numpy().flatten(),
+        'memThickness': y2_train.numpy().flatten()
+    })
+    train_data.to_csv(os.path.join('..', '..', 'Data', 'train_data.csv'), index=False)
+    logging.info(f"Training data saved to {os.path.join('..', '..', 'Data', 'train_data.csv')}")
+    # Save test data to CSV
+    test_data = pd.DataFrame({
+        'Time': t_phys.numpy().flatten(),
+        'V': f_values_full.numpy().flatten(),
+        'memThickness': g_values_full.numpy().flatten()
+    })
+    test_data.to_csv(os.path.join('..', '..', 'Data', 'test_data.csv'), index=False)
+    logging.info(f"Test data saved to {os.path.join('..', '..', 'Data', 'test_data.csv')}")
 
     # ------------------------- Build and Train the Model -------------------------
     logging.info("Initializing and training the PINN model...")
