@@ -7,7 +7,7 @@ powers:
 initial_thicknesses:
   - 1.5e-2
 k: null
-noise: 0.1
+noise: 1
 n: 100
 data_percentage: 3
 final_time: 8e5
@@ -17,7 +17,7 @@ decrease_type: "chemical"
 n_steps: 1000
 lambda_phys: 1.0
 lambda_mse: 1.0
-epochs: 10000
+epochs: 7500
 lr: 0.005
 patience: 10000
 lambda_boundary: 100.0
