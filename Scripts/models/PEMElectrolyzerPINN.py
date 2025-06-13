@@ -140,6 +140,21 @@ class PEMElectrolyzerPINN(nn.Module):
         loss_g = nn.MSELoss()(g_pred, g_data)
         return lambda_mse_f*loss_f + lambda_mse_g*loss_g
 
+    def rmse_loss(self, t_data, f_data, g_data, lambda_mse_f, lambda_mse_g, factor):
+        # Ensure all inputs are float64
+        t_data = t_data.to(torch.float64)
+        f_data = f_data.to(torch.float64)
+        g_data = g_data.to(torch.float64)
+        
+        f_pred, g_pred = self.forward(t_data)
+        
+        # Use float64 for the RMSE loss
+        rmse_loss_f = torch.sqrt(nn.MSELoss()(f_pred, f_data))
+        # Undo the factor scaling for g_pred and g_data done before training
+        #g_pred' = g_pred * factor
+        rmse_loss_g = torch.sqrt(nn.MSELoss()(g_pred/factor, g_data/factor))
+        return rmse_loss_f, rmse_loss_g
+
     def boundary_loss(self,lambda_boundary_f, lambda_boundary_g):
         """
         Computes the boundary loss error.

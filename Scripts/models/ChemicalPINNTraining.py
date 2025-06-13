@@ -349,11 +349,27 @@ def simulate_and_evaluate(temp_c, press, initial_thickness, power, k,
     y2_train[1:] += noise_factor_y2 * torch.randn_like(y2_train[1:])
     logging.info("Training data prepared.")
 
+    # Log training and test shapes
+    logging.info(f"Training data shapes: t_train={t_train.shape}, y1_train={y1_train.shape}, y2_train={y2_train.shape}")
+    logging.info(f"Test data shapes: t_phys={t_phys.shape}, f_values_full={f_values_full.shape}, g_values_full={g_values_full.shape}")
+
     # ------------------------- Define ODE Residuals -------------------------
     constants_df = pd.read_csv('../../Data/constants.csv')
     k1_mean = torch.tensor(constants_df['k1'].mean(), dtype=torch.float32)
     k2_mean = torch.tensor(constants_df['k2'].mean(), dtype=torch.float32)
     k3_mean = torch.tensor(constants_df['k3'].mean(), dtype=torch.float32)
+
+    # ODE residual function for the voltage equation after change of units (so errors are comparable between voltage and membrane thickness):
+    #   Let t_mem' = factor * t_mem
+    #   Then:
+    #       t_mem     = t_mem' / factor
+    #       dt_mem/dt = (1 / factor) * dt_mem'/dt
+    #       1 / t_mem   = factor / t_mem'
+    #       1 / t_mem^2 = factor^2 / (t_mem')^2
+    #
+    # Substituting these into the original dV/dt equation gives:
+    #     dV/dt = - (k2^V / V + k3^V * factor / (t_mem' * V^2) * (P / A_cell)) * dV/dt
+    #             - (k3^V * factor / (V * (t_mem')^2)) * (P / A_cell) * dt_mem'/dt
 
     f_func = lambda x, y: k1_mean * torch.ones_like(x) + \
                             k2_mean * torch.log(P_area / x) + \
@@ -373,9 +389,11 @@ def simulate_and_evaluate(temp_c, press, initial_thickness, power, k,
     lam = A_const / 164
     
     if not param_inference:
+        logging.info("Using fixed parameters for ODE residuals.")
         ode_residual_g_func = lambda f_pred, g_pred, dg_dx, t, k_pred: \
             dg_dx + ((3.6 * k10 *factor_k* Cmemb * MMF * 3600 / 1e4) / 164) * compute_CH2O2_CHO(Tk, P_area / f_pred, press) * g_pred * final_time
     else: 
+        logging.info("Using parameter inference for ODE residuals.")
         ode_residual_g_func = lambda f_pred, g_pred, dg_dx, t, k_pred: \
             dg_dx + ((3.6 * k_pred *factor_k* Cmemb * MMF * 3600 / 1e4) / 164) * compute_CH2O2_CHO(Tk, P_area / f_pred, press) * g_pred * final_time
         
@@ -430,13 +448,25 @@ def simulate_and_evaluate(temp_c, press, initial_thickness, power, k,
     train_mse = model.mse_loss(t_train, y1_train, y2_train, 
                                           lambda_mse_f=1.0, 
                                           lambda_mse_g=1.0).item()
+    train_f_rmse, train_g_rmse = model.rmse_loss(t_train, y1_train, y2_train,
+                                          lambda_mse_f=1.0, 
+                                          lambda_mse_g=1.0, factor=factor)
     # Loss on the full test set (all data points)
     # test_mse = compute_mse_loss(model, t_phys, f_values_full, g_values_full)
     test_mse = model.mse_loss(t_phys, f_values_full, g_values_full,
                                           lambda_mse_f=1.0, 
                                           lambda_mse_g=1.0).item()
+    test_f_rmse, test_g_rmse = model.rmse_loss(t_phys, f_values_full, g_values_full,
+                                          lambda_mse_f=1.0, 
+                                          lambda_mse_g=1.0, factor=factor)
+
     logging.info(f"Train MSE Loss: {train_mse:.8f}")
+    logging.info(f"Train RMSE Loss (Voltage): {train_f_rmse.item():.8f}")
+    logging.info(f"Train RMSE Loss (Membrane): {train_g_rmse.item():.8f}")
     logging.info(f"Test MSE Loss: {test_mse:.8f}")
+    logging.info(f"Test RMSE Loss (Voltage): {test_f_rmse.item():.8f}")
+    logging.info(f"Test RMSE Loss (Membrane): {test_g_rmse.item():.8f}")
+
 
     # ------------------------- Plot the Results -------------------------
     # The plot_results function should handle plotting the predictions vs. the full dataset.
@@ -457,7 +487,11 @@ def simulate_and_evaluate(temp_c, press, initial_thickness, power, k,
         "Noise": noise,
         "N": n,
         "Train_MSE": train_mse,
-        "Test_MSE": test_mse
+        "Train_RMSE_Voltage": train_f_rmse.item(),
+        "Train_RMSE_Membrane": train_g_rmse.item(),
+        "Test_MSE": test_mse,
+        "Test_RMSE_Voltage": test_f_rmse.item(),
+        "Test_RMSE_Membrane": test_g_rmse.item()
     }
 
 def load_config(config_path: str) -> dict:
