@@ -343,8 +343,8 @@ def simulate_and_evaluate(temp_c, press, initial_thickness, power, k,
 
     # Add noise to the training data (excluding the first point)
     logging.info("Adding noise to training data...")
-    noise_factor_y1 = noise * (y1_train.max() - y1_train.min())
-    noise_factor_y2 = noise * (y2_train.max() - y2_train.min())
+    noise_factor_y1 = noise * y1_train.std()
+    noise_factor_y2 = noise * y2_train.std()
     y1_train[1:] += noise_factor_y1 * torch.randn_like(y1_train[1:])
     y2_train[1:] += noise_factor_y2 * torch.randn_like(y2_train[1:])
     logging.info("Training data prepared.")
