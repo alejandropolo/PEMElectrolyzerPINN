@@ -31,6 +31,8 @@ def train(model, t_mse, t_phys, x_phys, y1_train, y2_train, t_val, y1_val, y2_va
     best_model_state = None
     patience_counter = 0
     
+    inferred_k_values = []  # List to store inferred k values
+
     for epoch in range(epochs):
         optimizer.zero_grad()
         
@@ -53,6 +55,10 @@ def train(model, t_mse, t_phys, x_phys, y1_train, y2_train, t_val, y1_val, y2_va
         # Backpropagation and optimization
         loss.backward()
         optimizer.step()
+        
+        # Save inferred k value if it exists
+        if hasattr(model, "k"):
+            inferred_k_values.append(model.k.item())
         
         # Compute validation loss
         with torch.no_grad():
@@ -82,6 +88,12 @@ def train(model, t_mse, t_phys, x_phys, y1_train, y2_train, t_val, y1_val, y2_va
         # Early stopping
         if patience_counter >= patience:
             break
+    
+    # Save inferred k values evolution if available
+    if inferred_k_values:
+        k_save_path = os.path.join(model_dir, f"inferred_k_evolution_{int(time.time())}.csv")
+        np.savetxt(k_save_path, np.array(inferred_k_values), delimiter=",", header="inferred_k", comments="")
+        print(f"Inferred k evolution saved to {k_save_path}")
     
     # Load the best model state
     if best_model_state is not None:
