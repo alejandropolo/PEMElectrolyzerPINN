@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 import os
+import copy
 
 # Training function
 def train(model, t_mse, t_phys, x_phys, y1_train, y2_train, t_val, y1_val, y2_val, 
@@ -67,7 +68,6 @@ def train(model, t_mse, t_phys, x_phys, y1_train, y2_train, t_val, y1_val, y2_va
                                           lambda_mse_g=lambda_mse_g)
         
         # Check for improvement
-        # FIXME: Use validation loss for early stopping
         if loss.item() < best_loss:
             best_loss = loss.item()
             best_model_state = model.state_dict()
