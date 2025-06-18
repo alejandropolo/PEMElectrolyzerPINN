@@ -5,7 +5,8 @@ import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
 import time
-
+import os
+import copy
 
 # Training function
 def train(model, t_mse, t_phys, x_phys, y1_train, y2_train, t_val, y1_val, y2_val, 
@@ -13,7 +14,7 @@ def train(model, t_mse, t_phys, x_phys, y1_train, y2_train, t_val, y1_val, y2_va
           epochs=1000, lr=0.001, lambda_mse=1.0, lambda_phys=1.0, 
           lambda_phys_f=1.0, lambda_phys_g=1.0, lambda_mse_f=1.0, lambda_mse_g=1.0, 
           lambda_boundary=1.0, lambda_boundary_f=1.0, lambda_boundary_g=1.0,
-          patience=10, model_dir = "../Models"):
+          patience=10, model_dir = "../Models", param_inference = False):
     
     # Convert all training and validation data to float64
     t_mse = t_mse.to(torch.float64)
@@ -31,6 +32,8 @@ def train(model, t_mse, t_phys, x_phys, y1_train, y2_train, t_val, y1_val, y2_va
     best_model_state = None
     patience_counter = 0
     
+    inferred_k_values = []  # List to store inferred k values
+
     for epoch in range(epochs):
         optimizer.zero_grad()
         
@@ -54,6 +57,10 @@ def train(model, t_mse, t_phys, x_phys, y1_train, y2_train, t_val, y1_val, y2_va
         loss.backward()
         optimizer.step()
         
+        # Save inferred k value if it exists
+        if hasattr(model, "k"):
+            inferred_k_values.append(model.k.item())
+        
         # Compute validation loss
         with torch.no_grad():
             val_loss_mse = model.mse_loss(t_val, y1_val, y2_val, 
@@ -61,7 +68,6 @@ def train(model, t_mse, t_phys, x_phys, y1_train, y2_train, t_val, y1_val, y2_va
                                           lambda_mse_g=lambda_mse_g)
         
         # Check for improvement
-        # FIXME: Use validation loss for early stopping
         if loss.item() < best_loss:
             best_loss = loss.item()
             best_model_state = model.state_dict()
@@ -70,15 +76,24 @@ def train(model, t_mse, t_phys, x_phys, y1_train, y2_train, t_val, y1_val, y2_va
             patience_counter += 1
         
         if epoch % max(1, epochs // 50) == 0:
+            inferred_k_str = f", Inferred k: {model.k.item():.6f}" if param_inference else ""
             print(f"Epoch {epoch}: Total Loss = {loss.item():.6f}, "
-                  f"MSE Loss = {loss_mse.item():.9f}, "
-                  f"Physics Loss = {physics_loss.item():.9f}, "
-                  f"Boundary Loss = {boundary_loss.item():.9f}, "
-                  f"Validation Loss = {val_loss_mse.item():.9f}")
-        
+                f"MSE Loss = {loss_mse.item():.9f}, "
+                f"Physics Loss = {physics_loss.item():.9f}, "
+                f"Boundary Loss = {boundary_loss.item():.9f}, "
+                f"Validation Loss = {val_loss_mse.item():.9f}"
+                f"{inferred_k_str}")
+
+            
         # Early stopping
         if patience_counter >= patience:
             break
+    
+    # Save inferred k values evolution if available
+    if inferred_k_values:
+        k_save_path = os.path.join(model_dir, f"inferred_k_evolution_{int(time.time())}.csv")
+        np.savetxt(k_save_path, np.array(inferred_k_values), delimiter=",", header="inferred_k", comments="")
+        print(f"Inferred k evolution saved to {k_save_path}")
     
     # Load the best model state
     if best_model_state is not None:
@@ -93,18 +108,17 @@ def train(model, t_mse, t_phys, x_phys, y1_train, y2_train, t_val, y1_val, y2_va
                                     lambda_mse_g=lambda_mse_g)
     
     print("Training complete!")
-    print(f"Early stopping at epoch {epoch}. Best training loss: {best_loss:.9f}. Best MSE loss: {best_mse_loss.item():.9f}. Best Val loss: {best_val_loss_mse.item():.9f}.")
-    # Save the model with the best state and the timestamp in the folder ../Models
+    inferred_k_str = f", Inferred k: {model.k.item():.6f}" if param_inference else ""
+    print(f"Early stopping at epoch {epoch}. Best training loss: {best_loss:.9f}. "
+        f"Best MSE loss: {best_mse_loss.item():.9f}. "
+        f"Best Val loss: {best_val_loss_mse.item():.9f}{inferred_k_str}.")
+# Save the model with the best state and the timestamp in the folder ../Models
     # model_dir = "../Models"
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
     model_path = f"{model_dir}/BestModel_{int(time.time())}.pt"
     torch.save(model.state_dict(), model_path)
     print(f"Model saved to {model_path}")
-
-import os
-import torch
-import matplotlib.pyplot as plt
 
 # Function to plot results and save the figure using a provided file path.
 def plot_results(model, t_test, t_train_mse, f_train, g_train, f_test, g_test, 
@@ -150,7 +164,7 @@ def plot_results(model, t_test, t_train_mse, f_train, g_train, f_test, g_test,
         
         plt.legend()
         plt.title("True vs Predicted Membrane Thickness")
-        plt.ylim(0, 2)  # Set y-axis limits between 1.5 and 3
+        # plt.ylim(0, 2)  # Set y-axis limits between 1.5 and 3
         plt.tight_layout()
 
         # If a filepath is provided, ensure the directory exists and save the figure.

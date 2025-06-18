@@ -1,14 +1,14 @@
 temperatures:
-  - 80
+  - 40
 pressures:
   - 30
 powers:
-  - 100
+  - 500
 initial_thicknesses:
-  - 1.8e-2
+  - 1.5e-2
 k: null
-noise: 0.3
-n: 20
+noise: 1
+n: 100
 data_percentage: 3
 final_time: 8e5
 results_csv: "../../Results/results.csv"
@@ -17,9 +17,10 @@ decrease_type: "chemical"
 n_steps: 1000
 lambda_phys: 1.0
 lambda_mse: 1.0
-epochs: 5000
-lr: 0.01
-patience: 2000
-lambda_boundary: 10.0
+epochs: 7500
+lr: 0.005
+patience: 10000
+lambda_boundary: 100.0
 factor: 1e2
+param_inference: True
 m: 10

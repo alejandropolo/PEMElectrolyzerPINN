@@ -67,18 +67,24 @@ class PEMElectrolyzerPINN(nn.Module):
         super(PEMElectrolyzerPINN, self).__init__()
         # All layers use torch.float64
         self.hidden = nn.Sequential(
-            nn.Linear(1, 32, dtype=torch.float64),
+            nn.Linear(1, 10, dtype=torch.float64),
             nn.Sigmoid(),
-            nn.Linear(32, 32, dtype=torch.float64),
+            nn.Linear(10, 5, dtype=torch.float64),
+            # nn.Sigmoid(),
+            # nn.Linear(100, 100, dtype=torch.float64),
             nn.Sigmoid()
         )
-        self.output1 = nn.Linear(32, 1, dtype=torch.float64)  # First output
-        self.output2 = nn.Linear(32, 1, dtype=torch.float64)  # Second output
+        self.output1 = nn.Linear(5, 1, dtype=torch.float64)  # First output
+        self.output2 = nn.Linear(5, 1, dtype=torch.float64)  # Second output
         
         # Ensure initial conditions are float64
         self.t0 = t0.to(torch.float64) if isinstance(t0, torch.Tensor) else torch.tensor(t0, dtype=torch.float64)
         self.y01 = y01.to(torch.float64) if isinstance(y01, torch.Tensor) else torch.tensor(y01, dtype=torch.float64)
         self.y02 = y02.to(torch.float64) if isinstance(y02, torch.Tensor) else torch.tensor(y02, dtype=torch.float64)
+
+        # Add learnable parameter k for parameter inference
+        self.k = nn.Parameter(torch.tensor(0.0, dtype=torch.float64))  # Initialize k to 1.0
+
 
     def forward(self, x):
         # Convert input to float64 if needed
@@ -88,7 +94,11 @@ class PEMElectrolyzerPINN(nn.Module):
         # Outputs will automatically be float64 due to layer definitions
         # Apply exponential activation to ensure positive outputs
         y1 = torch.exp(self.output1(features))  # First output, enforced to be positive
-        y2 = torch.exp(self.output2(features))  # Second output, enforced to be positive
+        # y2 = torch.exp(self.output2(features))  # Second output, enforced to be positive
+        y2 = self.output2(features)  # Second output, enforced to be positive
+
+        # y1 = self.y01 + (x - self.t0) * torch.exp(self.output1(features))
+        # y2 = self.y02 + (x - self.t0) * self.output2(features)
         return y1, y2
     
     def physics_loss(self, t_phys, x_phys, ode_residual_f_func, ode_residual_g_func, lambda_phys_f, lambda_phys_g):
@@ -112,7 +122,7 @@ class PEMElectrolyzerPINN(nn.Module):
         
         # Compute the residuals of the ODEs using the provided residual functions
         ode_residual_f = ode_residual_f_func(f_pred, g_pred, df_dx, dg_dx, t_phys, x_phys)
-        ode_residual_g = ode_residual_g_func(f_pred, g_pred, dg_dx, t_phys)
+        ode_residual_g = ode_residual_g_func(f_pred, g_pred, dg_dx, t_phys, self.k)
         
         # Compute and return the weighted mean squared residuals as the physics-based loss
         return lambda_phys_f*torch.mean(ode_residual_f**2) + lambda_phys_g*torch.mean(ode_residual_g**2)
@@ -129,6 +139,21 @@ class PEMElectrolyzerPINN(nn.Module):
         loss_f = nn.MSELoss()(f_pred, f_data)
         loss_g = nn.MSELoss()(g_pred, g_data)
         return lambda_mse_f*loss_f + lambda_mse_g*loss_g
+
+    def rmse_loss(self, t_data, f_data, g_data, lambda_mse_f, lambda_mse_g, factor):
+        # Ensure all inputs are float64
+        t_data = t_data.to(torch.float64)
+        f_data = f_data.to(torch.float64)
+        g_data = g_data.to(torch.float64)
+        
+        f_pred, g_pred = self.forward(t_data)
+        
+        # Use float64 for the RMSE loss
+        rmse_loss_f = torch.sqrt(nn.MSELoss()(f_pred, f_data))
+        # Undo the factor scaling for g_pred and g_data done before training
+        #g_pred' = g_pred * factor
+        rmse_loss_g = torch.sqrt(nn.MSELoss()(g_pred/factor, g_data/factor))
+        return rmse_loss_f, rmse_loss_g
 
     def boundary_loss(self,lambda_boundary_f, lambda_boundary_g):
         """

@@ -230,7 +230,7 @@ def simulate_and_evaluate(temp_c, press, initial_thickness, power, k,
                           Area_cell=680, decrease_type='chemical', final_time=8e5,
                           n_steps=1000, n_train=20, data_percentage=3, noise=0.0,
                           lambda_phys=1.0, lambda_mse=1.0, epochs=5000, lr=0.01,
-                          patience=2000, lambda_boundary=10.0, factor=1e2):
+                          patience=2000, lambda_boundary=10.0, factor=1e2, param_inference = False):
     """
     For a given temperature (in Celsius) and pressure (in bar), generate synthetic data,
     train the PINN, compute the MSE loss on both the training subset and the full test set,
@@ -265,7 +265,7 @@ def simulate_and_evaluate(temp_c, press, initial_thickness, power, k,
 
     # Convert temperature from Celsius to Kelvin
     Tk = torch.tensor(temp_c + 273, dtype=torch.float64)
-    n_steps = 1000                   # Number of simulation steps for data generation
+    # n_steps = 1000                   # Number of simulation steps for data generation
 
     # Check if the file already exists and delete it if necessary
     orig_file = os.path.join(os.path.dirname(__file__),'..','..', 'Data', 'membrane_thinning_voltage_data.csv')
@@ -318,7 +318,7 @@ def simulate_and_evaluate(temp_c, press, initial_thickness, power, k,
     torch.manual_seed(0)
     logging.info("Preparing training data for the PINN model...")
 
-    factor = factor  # Scale factor for thickness training data (if not magnitudes are too different)
+    # factor = factor  # Scale factor for thickness training data (if not magnitudes are too different)
 
     # Define t_phys as full data (for test evaluation and plotting)
     t_phys = torch.tensor(df['Time'].values, dtype=torch.float64).reshape(-1, 1)
@@ -343,17 +343,33 @@ def simulate_and_evaluate(temp_c, press, initial_thickness, power, k,
 
     # Add noise to the training data (excluding the first point)
     logging.info("Adding noise to training data...")
-    noise_factor_y1 = noise * (y1_train.max() - y1_train.min())
-    noise_factor_y2 = noise * (y2_train.max() - y2_train.min())
+    noise_factor_y1 = noise * y1_train.std()
+    noise_factor_y2 = noise * y2_train.std()
     y1_train[1:] += noise_factor_y1 * torch.randn_like(y1_train[1:])
     y2_train[1:] += noise_factor_y2 * torch.randn_like(y2_train[1:])
     logging.info("Training data prepared.")
+
+    # Log training and test shapes
+    logging.info(f"Training data shapes: t_train={t_train.shape}, y1_train={y1_train.shape}, y2_train={y2_train.shape}")
+    logging.info(f"Test data shapes: t_phys={t_phys.shape}, f_values_full={f_values_full.shape}, g_values_full={g_values_full.shape}")
 
     # ------------------------- Define ODE Residuals -------------------------
     constants_df = pd.read_csv('../../Data/constants.csv')
     k1_mean = torch.tensor(constants_df['k1'].mean(), dtype=torch.float32)
     k2_mean = torch.tensor(constants_df['k2'].mean(), dtype=torch.float32)
     k3_mean = torch.tensor(constants_df['k3'].mean(), dtype=torch.float32)
+
+    # ODE residual function for the voltage equation after change of units (so errors are comparable between voltage and membrane thickness):
+    #   Let t_mem' = factor * t_mem
+    #   Then:
+    #       t_mem     = t_mem' / factor
+    #       dt_mem/dt = (1 / factor) * dt_mem'/dt
+    #       1 / t_mem   = factor / t_mem'
+    #       1 / t_mem^2 = factor^2 / (t_mem')^2
+    #
+    # Substituting these into the original dV/dt equation gives:
+    #     dV/dt = - (k2^V / V + k3^V * factor / (t_mem' * V^2) * (P / A_cell)) * dV/dt
+    #             - (k3^V * factor / (V * (t_mem')^2)) * (P / A_cell) * dt_mem'/dt
 
     f_func = lambda x, y: k1_mean * torch.ones_like(x) + \
                             k2_mean * torch.log(P_area / x) + \
@@ -363,16 +379,40 @@ def simulate_and_evaluate(temp_c, press, initial_thickness, power, k,
         df_dx - (-k2_mean * df_dx / f_pred + k3_mean * factor * P_area *
                  (-(dg_dx / (f_pred * g_pred**2)) - (df_dx / (g_pred * f_pred**2))))
 
-    k10 = 1e3
+    k10 = 1
+    factor_k = 1e3
     EW = 1.1
     rhonaf = 1980
     Cmemb = rhonaf / EW
     MMF = 18.998403
     A_const = 3.6 * k10 * Cmemb * MMF * 3600 / 1e4
     lam = A_const / 164
-
-    ode_residual_g_func = lambda f_pred, g_pred, dg_dx, t: \
-        dg_dx + lam * compute_CH2O2_CHO(Tk, P_area / f_pred, press) * g_pred * final_time
+    
+    if not param_inference:
+        logging.info("Using fixed parameters for ODE residuals.")
+        ode_residual_g_func = lambda f_pred, g_pred, dg_dx, t, k_pred: \
+            dg_dx + ((3.6 * k10 *factor_k* Cmemb * MMF * 3600 / 1e4) / 164) * compute_CH2O2_CHO(Tk, P_area / f_pred, press) * g_pred * final_time
+    else: 
+        logging.info("Using parameter inference for ODE residuals.")
+        ode_residual_g_func = lambda f_pred, g_pred, dg_dx, t, k_pred: \
+            dg_dx + ((3.6 * k_pred *factor_k* Cmemb * MMF * 3600 / 1e4) / 164) * compute_CH2O2_CHO(Tk, P_area / f_pred, press) * g_pred * final_time
+        
+    # Save training data to CSV
+    train_data = pd.DataFrame({
+        'Time': t_train.numpy().flatten(),
+        'V': y1_train.numpy().flatten(),
+        'memThickness': y2_train.numpy().flatten()
+    })
+    train_data.to_csv(os.path.join('..', '..', 'Data', 'train_data.csv'), index=False)
+    logging.info(f"Training data saved to {os.path.join('..', '..', 'Data', 'train_data.csv')}")
+    # Save test data to CSV
+    test_data = pd.DataFrame({
+        'Time': t_phys.numpy().flatten(),
+        'V': f_values_full.numpy().flatten(),
+        'memThickness': g_values_full.numpy().flatten()
+    })
+    test_data.to_csv(os.path.join('..', '..', 'Data', 'test_data.csv'), index=False)
+    logging.info(f"Test data saved to {os.path.join('..', '..', 'Data', 'test_data.csv')}")
 
     # ------------------------- Build and Train the Model -------------------------
     logging.info("Initializing and training the PINN model...")
@@ -398,7 +438,8 @@ def simulate_and_evaluate(temp_c, press, initial_thickness, power, k,
           lambda_boundary=lambda_boundary,
           ode_residual_f_func=ode_residual_f_func,
           ode_residual_g_func=ode_residual_g_func,
-          model_dir="../../Models")
+          model_dir="../../Models",
+          param_inference=param_inference)
     logging.info("Model training complete.")
 
     # ------------------------- Compute MSE Loss on Training and Test Data -------------------------
@@ -407,20 +448,32 @@ def simulate_and_evaluate(temp_c, press, initial_thickness, power, k,
     train_mse = model.mse_loss(t_train, y1_train, y2_train, 
                                           lambda_mse_f=1.0, 
                                           lambda_mse_g=1.0).item()
+    train_f_rmse, train_g_rmse = model.rmse_loss(t_train, y1_train, y2_train,
+                                          lambda_mse_f=1.0, 
+                                          lambda_mse_g=1.0, factor=factor)
     # Loss on the full test set (all data points)
     # test_mse = compute_mse_loss(model, t_phys, f_values_full, g_values_full)
     test_mse = model.mse_loss(t_phys, f_values_full, g_values_full,
                                           lambda_mse_f=1.0, 
                                           lambda_mse_g=1.0).item()
+    test_f_rmse, test_g_rmse = model.rmse_loss(t_phys, f_values_full, g_values_full,
+                                          lambda_mse_f=1.0, 
+                                          lambda_mse_g=1.0, factor=factor)
+
     logging.info(f"Train MSE Loss: {train_mse:.8f}")
+    logging.info(f"Train RMSE Loss (Voltage): {train_f_rmse.item():.8f}")
+    logging.info(f"Train RMSE Loss (Membrane): {train_g_rmse.item():.8f}")
     logging.info(f"Test MSE Loss: {test_mse:.8f}")
+    logging.info(f"Test RMSE Loss (Voltage): {test_f_rmse.item():.8f}")
+    logging.info(f"Test RMSE Loss (Membrane): {test_g_rmse.item():.8f}")
+
 
     # ------------------------- Plot the Results -------------------------
     # The plot_results function should handle plotting the predictions vs. the full dataset.
     g_test = g_values_full.detach().numpy()
     f_test = f_values_full.detach().numpy()
     # Generate a filepath with the specific temperature and pressure
-    filepath = f"../../Results/Results_{int(temp_c)}_{int(press)}_{int(power)}_{initial_thickness:.2e}_{noise:.2f}_{n}.png"
+    filepath = f"../../Results/Results_{int(temp_c)}_{int(press)}_{int(power)}_{initial_thickness:.2e}_{noise:.2f}_{n}_{data_percentage}_{lambda_phys}_{lambda_mse}_{epochs}_{lr}_{patience}_{lambda_boundary}_{factor}_{param_inference}.png"
     plot_results(model, t_phys, t_train, y1_train, y2_train,
                  f_test=f_test, g_test=g_test, figsize=(18, 6), 
                  plot=False, filepath=filepath)
@@ -434,7 +487,11 @@ def simulate_and_evaluate(temp_c, press, initial_thickness, power, k,
         "Noise": noise,
         "N": n,
         "Train_MSE": train_mse,
-        "Test_MSE": test_mse
+        "Train_RMSE_Voltage": train_f_rmse.item(),
+        "Train_RMSE_Membrane": train_g_rmse.item(),
+        "Test_MSE": test_mse,
+        "Test_RMSE_Voltage": test_f_rmse.item(),
+        "Test_RMSE_Membrane": test_g_rmse.item()
     }
 
 def load_config(config_path: str) -> dict:
@@ -515,6 +572,7 @@ def main():
     patience = config['patience']
     lambda_boundary = config['lambda_boundary']
     factor = config['factor']
+    param_inference = config['param_inference']
 
     all_results = []
 
@@ -549,7 +607,8 @@ def main():
             lr=lr,
             patience=patience,
             lambda_boundary=lambda_boundary,
-            factor=factor
+            factor=factor,
+            param_inference=param_inference
         )
         all_results.append(losses)
         # Append the row to the CSV file
