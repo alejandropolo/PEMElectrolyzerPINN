@@ -5,9 +5,12 @@ __pycache__/
 
 #Ignore Figures folder
 Figures/*
+#Ignore Data_backup folder
+Data_back/*   
 
 # C extensions
 *.so
+
 
 # Distribution / packaging
 .Python

@@ -38,14 +38,6 @@ This repository contains scripts, data, and notebooks for modeling, analyzing, a
 4. **MultiPINN.py**: Demonstrates a dual-output neural network trained using a combination of data-driven and physics-informed losses derived from ODE residuals. Includes a complete pipeline for generating synthetic data, defining the architecture, training, and visualizing results.
 5. **DualOutputNN.py**: Provides an example of defining and training a dual-output neural network using PyTorch. Includes functions for generating synthetic data, defining the architecture, training, and visualizing results.
 
----
-
-## NOTEBOOKS
-
-1. **PINNTraining.ipynb**: Notebook for training a PINN to model and solve ODEs related to PEMWE systems.
-2. **analysisRealDataPEM.ipynb**: Preprocesses real data from PEM operating plants, infers membrane thickness using gradient descent, and performs parameter inference using a PINN to estimate the rate of membrane thickness degradation.
-
----
 
 ## DATA
 
